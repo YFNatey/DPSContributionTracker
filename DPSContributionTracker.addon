@@ -1,0 +1,8 @@
+## Title: DPSContributionTracker
+## Author: YFNatey
+## Version: 1.0
+## APIVersion:
+## SavedVariables: DPSContributionTracker_SavedVars
+## DependsOn: LibAddonMenu-2.0
+
+DPSContributionTracker.lua
