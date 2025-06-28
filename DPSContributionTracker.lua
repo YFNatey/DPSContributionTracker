@@ -1,10 +1,16 @@
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
+
+DPSContributionTracker.savedVars = nil
+DPSContributionTracker.totalBossMaxHealth = 0
+DPSContributionTracker.totalBossCurrentHealth = 0
+DPSContributionTracker.playerDamage = 0
+
 local function Initialize()
     -- Initialize saved variables
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
-        "DPSBaselineTracker_SavedVars",
+        "DPSContributionTracker_SavedVars",
         1,
         nil,
         {
