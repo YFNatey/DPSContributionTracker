@@ -3,8 +3,7 @@ local ADDON_NAME = "DPSContributionTracker"
 
 
 DPSContributionTracker.savedVars = nil
-DPSContributionTracker.totalBossMaxHealth = 0
-DPSContributionTracker.totalBossCurrentHealth = 0
+
 DPSContributionTracker.playerDamage = 0
 DPSContributionTracker.currentBossHealth = 0
 DPSContributionTracker.maxBossHealth = 0
@@ -38,6 +37,24 @@ function DPSContributionTracker:UpdateStatus()
         local damagePercent = (damageDone / self.maxBossHealth) * 100
         d(string.format("Boss HP: %d / %d (%.2f%%)", self.currentBossHealth, self.maxBossHealth, damagePercent))
         d(string.format("Your damage: %d", self.playerDamage))
+
+        local expectedDPS = self.maxBossHealth / self.playerDamage / 7.6
+    end
+end
+
+DPSContributionTracker.combatStartTime = 0
+DPSContributionTracker.combatEndTime = 0
+DPSContributionTracker.timeElapsed = 0
+
+function DPSContributionTracker:OnCombatStateChanged(inCombat)
+    if inCombat then
+        self.playerDamage = 0
+        self.combatStartTime = GetGameTimeMilliseconds()
+        d("Combat Started")
+    else
+        self.combatEndTime = GetGameTimeMilliseconds()
+        self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
+        d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
     end
 end
 
@@ -62,10 +79,11 @@ local function Initialize()
         end)
 end
 
-EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, Initialize)
---- Callback for the EVENT_ADD_ON_LOADED event.
--- @param event number - The numeric ID of the triggered event.
--- @param addonName string - The name of the addon that was just loaded.
+-- Register start and stop for combat state
+EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
+    function(_, inCombat)
+        DPSContributionTracker:OnCombatStateChanged(inCombat)
+    end)
 
 local function OnAddOnLoaded(event, addonName)
     if addonName == ADDON_NAME then
