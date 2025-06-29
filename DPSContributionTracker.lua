@@ -1,12 +1,25 @@
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
-
 DPSContributionTracker.savedVars = nil
-
+DPSContributionTracker.combatStartTime = 0
+DPSContributionTracker.combatEndTime = 0
+DPSContributionTracker.timeElapsed = 0
 DPSContributionTracker.playerDamage = 0
 DPSContributionTracker.currentBossHealth = 0
 DPSContributionTracker.maxBossHealth = 0
+
+function DPSContributionTracker:OnCombatStateChanged(inCombat)
+    if inCombat then
+        self.playerDamage = 0
+        self.combatStartTime = GetGameTimeMilliseconds()
+        d("Combat Started")
+    else
+        self.combatEndTime = GetGameTimeMilliseconds()
+        self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
+        d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
+    end
+end
 
 --Get total boss health
 function DPSContributionTracker:GetBossHealth()
@@ -31,30 +44,18 @@ end
 
 -- Called to update the boss health and print DPS info
 function DPSContributionTracker:UpdateStatus()
-    self.GetBossHealth()
+    self:GetBossHealth()
     if self.maxBossHealth > 0 then
         local damageDone = self.maxBossHealth - self.currentBossHealth
         local damagePercent = (damageDone / self.maxBossHealth) * 100
         d(string.format("Boss HP: %d / %d (%.2f%%)", self.currentBossHealth, self.maxBossHealth, damagePercent))
         d(string.format("Your damage: %d", self.playerDamage))
 
-        local expectedDPS = self.maxBossHealth / self.playerDamage / 7.6
-    end
-end
+        local expectedDPS = self.maxBossHealth / self.timeElapsed / 7.6
+        local actualDPS = self.playerDamage / self.timeElapsed
+        local contributionDiff = ((actualDPS - expectedDPS) / expectedDPS) * 100
 
-DPSContributionTracker.combatStartTime = 0
-DPSContributionTracker.combatEndTime = 0
-DPSContributionTracker.timeElapsed = 0
-
-function DPSContributionTracker:OnCombatStateChanged(inCombat)
-    if inCombat then
-        self.playerDamage = 0
-        self.combatStartTime = GetGameTimeMilliseconds()
-        d("Combat Started")
-    else
-        self.combatEndTime = GetGameTimeMilliseconds()
-        self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
-        d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
+        d(string.format("Your DPS: %.1f | Expected: %.1f | Difference: %.1f%%", actualDPS, expectedDPS, contributionDiff))
     end
 end
 
@@ -75,10 +76,11 @@ local function Initialize()
     -- Register combat event
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
         function(...)
-            DPSContributionTracker.OnCombatEvent(...)
+            DPSContributionTracker:OnCombatEvent(...)
         end)
 end
 
+-- Event Managers
 -- Register start and stop for combat state
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
     function(_, inCombat)
@@ -93,3 +95,8 @@ local function OnAddOnLoaded(event, addonName)
 end
 
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
+
+-- Periodic update
+EVENT_MANAGER:RegisterForUpdate(ADDON_NAME .. "_UpdateStatus", 1000, function()
+    DPSContributionTracker:UpdateStatus()
+end)
