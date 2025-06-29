@@ -1,6 +1,13 @@
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
+-- Debug print helper
+local function debug(msg)
+    d("[DPS Tracker] " .. tostring(msg))
+end
+
+
+
 DPSContributionTracker.savedVars = nil
 DPSContributionTracker.combatStartTime = 0
 DPSContributionTracker.combatEndTime = 0
@@ -21,28 +28,24 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
     end
 end
 
---Get total boss health
+-- Simulate boss health loss for testing
 function DPSContributionTracker:GetBossHealth()
-    self.currentBossHealth = 0
-    self.maxBossHealth = 0
-    for i = 1, 5 do
-        local unitTag = "boss" .. i
-        if DoesUnitExist(unitTag) then
-            self.currentBossHealth = self.currentBossHealth + GetUnitHealth(unitTag)
-            self.maxBossHealth = self.maxBossHealth + GetUnitMaxHealth(unitTag)
-        end
-    end
-end
+    local remaining = self.maxSimulatedHealth - self.simulatedDamageTaken
+    if remaining < 0 then remaining = 0 end
 
+    self.currentBossHealth = remaining
+    self.maxBossHealth = self.maxSimulatedHealth
+end
 -- Called every combat event to track player damage
 function DPSContributionTracker:OnCombatEvent(_, _, _, _, _, _, sourceName, _, _, _, hitValue, _, _, _, _, targetUnitId,
                                               _, _)
-    if sourceName == GetUnitName("player") and hitValue > 0 and (targetUnitId and IsUnitBoss(targetUnitId)) then
+    if sourceName == GetUnitName("player") and hitValue > 0 then
         self.playerDamage = self.playerDamage + hitValue
+        debug(string.format("source: %s | hit: %d | targetID: %s", sourceName, hitValue, tostring(targetUnitId)))
     end
 end
 
--- Called to update the boss health and print DPS info
+-- Update the boss health and print DPS info
 function DPSContributionTracker:UpdateStatus()
     self:GetBossHealth()
     if self.maxBossHealth > 0 then
@@ -59,8 +62,10 @@ function DPSContributionTracker:UpdateStatus()
     end
 end
 
+- Initialize addon
 local function Initialize()
-    -- Initialize saved variables
+    debug("Initializing addon")
+
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
         1,
@@ -71,13 +76,19 @@ local function Initialize()
         }
     )
 
-    DPSContributionTracker.playerDamage = 0
-
-    -- Register combat event
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
-        function(...)
-            DPSContributionTracker:OnCombatEvent(...)
-        end)
+        function(...) DPSContributionTracker:OnCombatEvent(...) end)
+
+    debug("Registered combat event")
+end
+
+-- Addon loaded handler
+local function OnAddOnLoaded(event, addonName)
+    if addonName == ADDON_NAME then
+        debug("AddOn Loaded: " .. addonName)
+        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
+        Initialize()
+    end
 end
 
 -- Event Managers
