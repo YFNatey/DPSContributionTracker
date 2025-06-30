@@ -14,29 +14,36 @@ DPSContributionTracker.combatEndTime = 0
 DPSContributionTracker.timeElapsed = 0
 DPSContributionTracker.playerDamage = 0
 DPSContributionTracker.currentBossHealth = 0
-DPSContributionTracker.maxBossHealth = 0
+DPSContributionTracker.maxEnemyHealth = 1000000
+DPSContributionTracker.inCombat = false
 
+
+-- get enemy health
+function DPSContributionTracker:GetEnemyHealth()
+    local unitTag = "reticleover"
+    if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
+        local maxHP = GetUnitAttributeVisualizerValue(unitTag, ATTRIBUTE_HEALTH)
+        self.maxEnemyHealth = maxHP
+    end
+end
+
+-- Get combat state
 function DPSContributionTracker:OnCombatStateChanged(inCombat)
     if inCombat then
+        self:GetEnemyHealth()
+        self.inCombat = true
         self.playerDamage = 0
         self.combatStartTime = GetGameTimeMilliseconds()
         d("Combat Started")
     else
+        self.inCombat = false
         self.combatEndTime = GetGameTimeMilliseconds()
         self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
         d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
     end
 end
 
--- Simulate boss health loss for testing
-function DPSContributionTracker:GetBossHealth()
-    local remaining = self.maxSimulatedHealth - self.simulatedDamageTaken
-    if remaining < 0 then remaining = 0 end
-
-    self.currentBossHealth = remaining
-    self.maxBossHealth = self.maxSimulatedHealth
-end
--- Called every combat event to track player damage
+-- track player damage
 function DPSContributionTracker:OnCombatEvent(_, _, _, _, _, _, sourceName, _, _, _, hitValue, _, _, _, _, targetUnitId,
                                               _, _)
     if sourceName == GetUnitName("player") and hitValue > 0 then
@@ -45,24 +52,19 @@ function DPSContributionTracker:OnCombatEvent(_, _, _, _, _, _, sourceName, _, _
     end
 end
 
--- Update the boss health and print DPS info
+-- Update enemy health and print DPS info
 function DPSContributionTracker:UpdateStatus()
-    self:GetBossHealth()
-    if self.maxBossHealth > 0 then
-        local damageDone = self.maxBossHealth - self.currentBossHealth
-        local damagePercent = (damageDone / self.maxBossHealth) * 100
-        d(string.format("Boss HP: %d / %d (%.2f%%)", self.currentBossHealth, self.maxBossHealth, damagePercent))
-        d(string.format("Your damage: %d", self.playerDamage))
-
-        local expectedDPS = self.maxBossHealth / self.timeElapsed / 7.6
+    if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth then
+        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / 7.6
         local actualDPS = self.playerDamage / self.timeElapsed
         local contributionDiff = ((actualDPS - expectedDPS) / expectedDPS) * 100
 
+        d(string.format("Enemy HP: %d", self.maxEnemyHealth))
         d(string.format("Your DPS: %.1f | Expected: %.1f | Difference: %.1f%%", actualDPS, expectedDPS, contributionDiff))
     end
 end
 
-- Initialize addon
+-- INIT addon
 local function Initialize()
     debug("Initializing addon")
 
@@ -82,15 +84,6 @@ local function Initialize()
     debug("Registered combat event")
 end
 
--- Addon loaded handler
-local function OnAddOnLoaded(event, addonName)
-    if addonName == ADDON_NAME then
-        debug("AddOn Loaded: " .. addonName)
-        EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
-        Initialize()
-    end
-end
-
 -- Event Managers
 -- Register start and stop for combat state
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
@@ -100,6 +93,7 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
 
 local function OnAddOnLoaded(event, addonName)
     if addonName == ADDON_NAME then
+        debug("AddOn Loaded: " .. addonName)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
         Initialize()
     end
