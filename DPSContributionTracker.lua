@@ -1,66 +1,84 @@
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
+-- Debug print helper
+local function debug(msg)
+    d("[DPS Tracker] " .. tostring(msg))
+end
+
+
+
 DPSContributionTracker.savedVars = nil
 DPSContributionTracker.combatStartTime = 0
 DPSContributionTracker.combatEndTime = 0
 DPSContributionTracker.timeElapsed = 0
 DPSContributionTracker.playerDamage = 0
-DPSContributionTracker.currentBossHealth = 0
-DPSContributionTracker.maxBossHealth = 0
+DPSContributionTracker.currentEnemyHealth = 0
+DPSContributionTracker.maxEnemyHealth = 0
+DPSContributionTracker.inCombat = false
+DPSContributionTracker.hasReported = false
 
+
+-- get enemy health
+function DPSContributionTracker:GetEnemyHealth()
+    local unitTag = "reticleover"
+    if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
+        local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH)
+        self.maxEnemyHealth = maxHP
+        d("Detected enemy max health: " .. tostring(maxHP))
+    else
+        d("No valid enemy target detected")
+    end
+end
+
+-- Get combat state
 function DPSContributionTracker:OnCombatStateChanged(inCombat)
     if inCombat then
+        self:GetEnemyHealth()
+        self.inCombat = true
         self.playerDamage = 0
+        self.playerTotalDamage = 0
         self.combatStartTime = GetGameTimeMilliseconds()
+        self.hasReported = false
         d("Combat Started")
     else
+        self.inCombat = false
         self.combatEndTime = GetGameTimeMilliseconds()
         self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
         d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
     end
 end
 
---Get total boss health
-function DPSContributionTracker:GetBossHealth()
-    self.currentBossHealth = 0
-    self.maxBossHealth = 0
-    for i = 1, 5 do
-        local unitTag = "boss" .. i
-        if DoesUnitExist(unitTag) then
-            self.currentBossHealth = self.currentBossHealth + GetUnitHealth(unitTag)
-            self.maxBossHealth = self.maxBossHealth + GetUnitMaxHealth(unitTag)
-        end
-    end
-end
-
--- Called every combat event to track player damage
-function DPSContributionTracker:OnCombatEvent(_, _, _, _, _, _, sourceName, _, _, _, hitValue, _, _, _, _, targetUnitId,
-                                              _, _)
-    if sourceName == GetUnitName("player") and hitValue > 0 and (targetUnitId and IsUnitBoss(targetUnitId)) then
+-- track player damage
+function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
+                                              abilityActionSlotType,
+                                              sourceName, sourceType, targetName, targetType,
+                                              hitValue, powerType, damageType, combatMechanic,
+                                              sourceUnitId, targetUnitId, abilityId, overflow)
+    if sourceType == COMBAT_UNIT_TYPE_PLAYER and hitValue > 0 then
         self.playerDamage = self.playerDamage + hitValue
+
+        d(string.format("Player hit for %d", hitValue))
     end
 end
 
--- Called to update the boss health and print DPS info
+-- Update enemy health and print DPS info
 function DPSContributionTracker:UpdateStatus()
-    self:GetBossHealth()
-    if self.maxBossHealth > 0 then
-        local damageDone = self.maxBossHealth - self.currentBossHealth
-        local damagePercent = (damageDone / self.maxBossHealth) * 100
-        d(string.format("Boss HP: %d / %d (%.2f%%)", self.currentBossHealth, self.maxBossHealth, damagePercent))
-        d(string.format("Your damage: %d", self.playerDamage))
-
-        local expectedDPS = self.maxBossHealth / self.timeElapsed / 7.6
+    if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
+        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / 1
         local actualDPS = self.playerDamage / self.timeElapsed
-        local contributionDiff = ((actualDPS - expectedDPS) / expectedDPS) * 100
-
-        d(string.format("Your DPS: %.1f | Expected: %.1f | Difference: %.1f%%", actualDPS, expectedDPS, contributionDiff))
+        local Contribution = (self.playerDamage / self.maxEnemyHealth) * 100
+        d(string.format("Enemy HP: %d", self.maxEnemyHealth))
+        d(string.format("Your DPS: %.1f | Expected DPS: %.1f | Contribution: %.1f%%", actualDPS, expectedDPS,
+            Contribution))
+        self.hasReported = true
     end
 end
 
+-- INIT addon
 local function Initialize()
-    -- Initialize saved variables
+    d("Initializing addon")
+
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
         1,
@@ -71,13 +89,10 @@ local function Initialize()
         }
     )
 
-    DPSContributionTracker.playerDamage = 0
-
-    -- Register combat event
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
-        function(...)
-            DPSContributionTracker:OnCombatEvent(...)
-        end)
+        function(...) DPSContributionTracker:OnCombatEvent(...) end)
+
+    d("Registered combat event")
 end
 
 -- Event Managers
@@ -89,6 +104,7 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
 
 local function OnAddOnLoaded(event, addonName)
     if addonName == ADDON_NAME then
+        d("AddOn Loaded: " .. addonName)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
         Initialize()
     end
