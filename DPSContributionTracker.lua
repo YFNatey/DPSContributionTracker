@@ -13,17 +13,21 @@ DPSContributionTracker.combatStartTime = 0
 DPSContributionTracker.combatEndTime = 0
 DPSContributionTracker.timeElapsed = 0
 DPSContributionTracker.playerDamage = 0
-DPSContributionTracker.currentBossHealth = 0
-DPSContributionTracker.maxEnemyHealth = 1000000
+DPSContributionTracker.currentEnemyHealth = 0
+DPSContributionTracker.maxEnemyHealth = 0
 DPSContributionTracker.inCombat = false
+DPSContributionTracker.hasReported = false
 
 
 -- get enemy health
 function DPSContributionTracker:GetEnemyHealth()
     local unitTag = "reticleover"
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        local maxHP = GetUnitAttributeVisualizerValue(unitTag, ATTRIBUTE_HEALTH)
+        local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH)
         self.maxEnemyHealth = maxHP
+        d("Detected enemy max health: " .. tostring(maxHP))
+    else
+        d("No valid enemy target detected")
     end
 end
 
@@ -33,7 +37,9 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
         self:GetEnemyHealth()
         self.inCombat = true
         self.playerDamage = 0
+        self.playerTotalDamage = 0
         self.combatStartTime = GetGameTimeMilliseconds()
+        self.hasReported = false
         d("Combat Started")
     else
         self.inCombat = false
@@ -44,29 +50,34 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
 end
 
 -- track player damage
-function DPSContributionTracker:OnCombatEvent(_, _, _, _, _, _, sourceName, _, _, _, hitValue, _, _, _, _, targetUnitId,
-                                              _, _)
-    if sourceName == GetUnitName("player") and hitValue > 0 then
+function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
+                                              abilityActionSlotType,
+                                              sourceName, sourceType, targetName, targetType,
+                                              hitValue, powerType, damageType, combatMechanic,
+                                              sourceUnitId, targetUnitId, abilityId, overflow)
+    if sourceType == COMBAT_UNIT_TYPE_PLAYER and hitValue > 0 then
         self.playerDamage = self.playerDamage + hitValue
-        debug(string.format("source: %s | hit: %d | targetID: %s", sourceName, hitValue, tostring(targetUnitId)))
+
+        d(string.format("Player hit for %d", hitValue))
     end
 end
 
 -- Update enemy health and print DPS info
 function DPSContributionTracker:UpdateStatus()
-    if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth then
-        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / 7.6
+    if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
+        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / 1
         local actualDPS = self.playerDamage / self.timeElapsed
-        local contributionDiff = ((actualDPS - expectedDPS) / expectedDPS) * 100
-
+        local Contribution = (self.playerDamage / self.maxEnemyHealth) * 100
         d(string.format("Enemy HP: %d", self.maxEnemyHealth))
-        d(string.format("Your DPS: %.1f | Expected: %.1f | Difference: %.1f%%", actualDPS, expectedDPS, contributionDiff))
+        d(string.format("Your DPS: %.1f | Expected DPS: %.1f | Contribution: %.1f%%", actualDPS, expectedDPS,
+            Contribution))
+        self.hasReported = true
     end
 end
 
 -- INIT addon
 local function Initialize()
-    debug("Initializing addon")
+    d("Initializing addon")
 
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
@@ -81,7 +92,7 @@ local function Initialize()
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
         function(...) DPSContributionTracker:OnCombatEvent(...) end)
 
-    debug("Registered combat event")
+    d("Registered combat event")
 end
 
 -- Event Managers
@@ -93,7 +104,7 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
 
 local function OnAddOnLoaded(event, addonName)
     if addonName == ADDON_NAME then
-        debug("AddOn Loaded: " .. addonName)
+        d("AddOn Loaded: " .. addonName)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
         Initialize()
     end
