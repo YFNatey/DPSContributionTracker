@@ -15,6 +15,8 @@ DPSContributionTracker.currentEnemyHealth = 0
 DPSContributionTracker.maxEnemyHealth = 0
 DPSContributionTracker.inCombat = false
 DPSContributionTracker.hasReported = false
+DPSContributionTracker.critCount = 0
+DPSContributionTracker.normalCount = 0
 
 -- get enemy health
 function DPSContributionTracker:GetEnemyHealth()
@@ -76,10 +78,23 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
                                               sourceName, sourceType, targetName, targetType,
                                               hitValue, powerType, damageType, combatMechanic,
                                               sourceUnitId, targetUnitId, abilityId, overflow)
-    if sourceType == COMBAT_UNIT_TYPE_PLAYER and hitValue > 0 then
+    if sourceType == COMBAT_UNIT_TYPE_PLAYER and hitValue > 1 then
         self.playerDamage = self.playerDamage + hitValue
 
-        d(string.format("Player hit for %d", hitValue))
+        if result == ACTION_RESULT_CRITICAL_DAMAGE then
+            d("CRITICAL hit for" .. hitValue)
+            self.critCount = self.critCount + 1
+        elseif result == ACTION_RESULT_DAMAGE then
+            self.normalCount = self.normalCount + 1
+            d("NORMAL hit for" .. hitValue)
+        end
+
+        -- Show crit ratio
+        local totalHits = self.critCount + self.normalCount
+        if totalHits > 0 then
+            local critRate = (self.critCount / totalHits) * 100
+            d(string.format("Crit Rate: %.1f%% (%d crits / %d total)", critRate, self.critCount, totalHits))
+        end
     end
 end
 
@@ -138,7 +153,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             default = true,
         },
         {
-            type = "button",
+            type = "buttaon",
             name = "Reset Saved Data",
             tooltip = "Resets the stored DPS history.",
             func = function()
