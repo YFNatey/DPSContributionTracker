@@ -6,7 +6,7 @@
 local MAJOR, MINOR = "LibAddonMenu-2.0", _LAM2_VERSION_NUMBER or -1
 
 local lam
-if(not LibStub) then
+if (not LibStub) then
     lam = {}
 else
     -- Optionally register LAM with LibStub
@@ -43,7 +43,8 @@ else
 end
 
 if LAMSettingsPanelCreated and not LAMCompatibilityWarning then
-    PrintLater("An old version of LibAddonMenu with compatibility issues was detected. For more information on how to proceed search for LibAddonMenu on esoui.com")
+    PrintLater(
+    "An old version of LibAddonMenu with compatibility issues was detected. For more information on how to proceed search for LibAddonMenu on esoui.com")
     LAMCompatibilityWarning = true
 end
 
@@ -89,7 +90,7 @@ local function GetStringFromValue(value)
     return value
 end
 
-local FAQ_ICON_COLOR = ZO_ColorDef:New("FFFFFF") -- white
+local FAQ_ICON_COLOR = ZO_ColorDef:New("FFFFFF")            -- white
 local FAQ_ICON_MOUSE_OVER_COLOR = ZO_ColorDef:New("B8B8D3") -- dark-blue/white
 local FAQ_ICON_MOUSE_OVER_ALPHA = 1
 local FAQ_ICON_MOUSE_EXIT_ALPHA = 0.4
@@ -102,7 +103,10 @@ end
 
 local function CreateFAQTexture(control)
     local controlData = control.data
-    if not control or not controlData then logger:Warn("CreateFAQTexture - missing or invalid control") return end
+    if not control or not controlData then
+        logger:Warn("CreateFAQTexture - missing or invalid control")
+        return
+    end
     local helpUrl = controlData and GetStringFromValue(controlData.helpUrl)
     if not helpUrl or helpUrl == "" then return end
 
@@ -210,7 +214,7 @@ end
 local function SetUpTooltip(control, data, tooltipData)
     if not data.tooltip then return end
     control:SetMouseEnabled(true)
-    control.data = tooltipData or {tooltipText = util.GetStringFromValue(data.tooltip)}
+    control.data = tooltipData or { tooltipText = util.GetStringFromValue(data.tooltip) }
     control:SetHandler("OnMouseEnter", ZO_Options_OnMouseEnter)
     control:SetHandler("OnMouseExit", ZO_Options_OnMouseExit)
 end
@@ -235,7 +239,7 @@ local function RefreshReloadUIButton()
 
     for i = 1, #controlsForReload do
         local reloadControl = controlsForReload[i]
-        if not IsSame(reloadControl.startValue, {reloadControl.data.getFunc()}) then
+        if not IsSame(reloadControl.startValue, { reloadControl.data.getFunc() }) then
             lam.requiresReload = true
             break
         end
@@ -268,12 +272,12 @@ end
 local function RegisterForReloadIfNeeded(control)
     if control.data.requiresReload then
         tinsert(controlsForReload, control)
-        control.startValue = {control.data.getFunc()}
+        control.startValue = { control.data.getFunc() }
     end
 end
 
 local function GetConfirmDialog()
-    if(not ESO_Dialogs[LAM_CONFIRM_DIALOG]) then
+    if (not ESO_Dialogs[LAM_CONFIRM_DIALOG]) then
         ESO_Dialogs[LAM_CONFIRM_DIALOG] = {
             canQueue = true,
             title = {
@@ -305,7 +309,7 @@ local function ShowConfirmationDialog(title, body, callback)
 end
 
 local function GetDefaultsDialog()
-    if(not ESO_Dialogs[LAM_DEFAULTS_DIALOG]) then
+    if (not ESO_Dialogs[LAM_DEFAULTS_DIALOG]) then
         ESO_Dialogs[LAM_DEFAULTS_DIALOG] = {
             canQueue = true,
             title = {
@@ -340,7 +344,7 @@ end
 local function DiscardChangesOnReloadControls()
     for i = 1, #controlsForReload do
         local reloadControl = controlsForReload[i]
-        if not IsSame(reloadControl.startValue, {reloadControl.data.getFunc()}) then
+        if not IsSame(reloadControl.startValue, { reloadControl.data.getFunc() }) then
             reloadControl:UpdateValue(false, unpack(reloadControl.startValue))
         end
     end
@@ -356,7 +360,7 @@ end
 
 local function RetrievePanelForReopening()
     local saveData = ZO_Ingame_SavedVariables["LAM"]
-    if(saveData) then
+    if (saveData) then
         ZO_Ingame_SavedVariables["LAM"] = nil
         return _G[saveData.reopenPanel]
     end
@@ -372,7 +376,7 @@ local function HandleLoadDefaultsPressed()
 end
 
 local function GetReloadDialog()
-    if(not ESO_Dialogs[LAM_RELOAD_DIALOG]) then
+    if (not ESO_Dialogs[LAM_RELOAD_DIALOG]) then
         ESO_Dialogs[LAM_RELOAD_DIALOG] = {
             canQueue = true,
             title = {
@@ -421,7 +425,7 @@ local function UpdateWarning(control)
     if not warning then
         control.warning:SetHidden(true)
     else
-        control.warning.data = {tooltipText = warning}
+        control.warning.data = { tooltipText = warning }
         control.warning:SetHidden(false)
     end
 end
@@ -438,7 +442,8 @@ local localization = {
         PANEL_INFO_FONT = "$(CHAT_FONT)|14|soft-shadow-thin",
         RELOAD_UI_WARNING = "Changes to this setting require a UI reload in order to take effect.",
         RELOAD_DIALOG_TITLE = "UI Reload Required",
-        RELOAD_DIALOG_TEXT = "Some changes require a UI reload in order to take effect. Do you want to reload now or discard the changes?",
+        RELOAD_DIALOG_TEXT =
+        "Some changes require a UI reload in order to take effect. Do you want to reload now or discard the changes?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Reload",
         RELOAD_DIALOG_DISCARD_BUTTON = "Discard",
     },
@@ -451,7 +456,8 @@ local localization = {
         DONATION = "Donare",
         RELOAD_UI_WARNING = "Cambiare questa impostazione richiede un Ricarica UI al fine che faccia effetto.",
         RELOAD_DIALOG_TITLE = "Ricarica UI richiesto",
-        RELOAD_DIALOG_TEXT = "Alcune modifiche richiedono un Ricarica UI al fine che facciano effetto. Sei sicuro di voler ricaricare ora o di voler annullare le modifiche?",
+        RELOAD_DIALOG_TEXT =
+        "Alcune modifiche richiedono un Ricarica UI al fine che facciano effetto. Sei sicuro di voler ricaricare ora o di voler annullare le modifiche?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Ricarica",
         RELOAD_DIALOG_DISCARD_BUTTON = "Annulla",
     },
@@ -461,9 +467,11 @@ local localization = {
         FEEDBACK = "Réaction",
         TRANSLATION = "Traduction",
         DONATION = "Donner",
-        RELOAD_UI_WARNING = "La modification de ce paramètre requiert un rechargement de l'UI pour qu'il soit pris en compte.",
+        RELOAD_UI_WARNING =
+        "La modification de ce paramètre requiert un rechargement de l'UI pour qu'il soit pris en compte.",
         RELOAD_DIALOG_TITLE = "Reload UI requis",
-        RELOAD_DIALOG_TEXT = "Certaines modifications requièrent un rechargement de l'UI pour qu'ils soient pris en compte. Souhaitez-vous recharger l'interface maintenant ou annuler les modifications ?",
+        RELOAD_DIALOG_TEXT =
+        "Certaines modifications requièrent un rechargement de l'UI pour qu'ils soient pris en compte. Souhaitez-vous recharger l'interface maintenant ou annuler les modifications ?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Recharger",
         RELOAD_DIALOG_DISCARD_BUTTON = "Annuler",
     },
@@ -473,9 +481,11 @@ local localization = {
         FEEDBACK = "Feedback",
         TRANSLATION = "Übersetzung",
         DONATION = "Spende",
-        RELOAD_UI_WARNING = "Änderungen an dieser Option werden erst übernommen nachdem die Benutzeroberfläche neu geladen wird.",
+        RELOAD_UI_WARNING =
+        "Änderungen an dieser Option werden erst übernommen nachdem die Benutzeroberfläche neu geladen wird.",
         RELOAD_DIALOG_TITLE = "Neuladen benötigt",
-        RELOAD_DIALOG_TEXT = "Einige Änderungen werden erst übernommen nachdem die Benutzeroberfläche neu geladen wird. Wollt Ihr sie jetzt neu laden oder die Änderungen verwerfen?",
+        RELOAD_DIALOG_TEXT =
+        "Einige Änderungen werden erst übernommen nachdem die Benutzeroberfläche neu geladen wird. Wollt Ihr sie jetzt neu laden oder die Änderungen verwerfen?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Neu laden",
         RELOAD_DIALOG_DISCARD_BUTTON = "Verwerfen",
     },
@@ -488,7 +498,8 @@ local localization = {
         DONATION = "Жертвовать",
         RELOAD_UI_WARNING = "Для применения этой настройки необходима перезагрузка интерфейса.",
         RELOAD_DIALOG_TITLE = "Необходима перезагрузка интерфейса",
-        RELOAD_DIALOG_TEXT = "Для применения некоторых изменений необходима перезагрузка интерфейса. Перезагрузить интерфейс сейчас или отменить изменения?",
+        RELOAD_DIALOG_TEXT =
+        "Для применения некоторых изменений необходима перезагрузка интерфейса. Перезагрузить интерфейс сейчас или отменить изменения?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Перезагрузить",
         RELOAD_DIALOG_DISCARD_BUTTON = "Отменить изменения",
     },
@@ -501,7 +512,8 @@ local localization = {
         DONATION = "Donar",
         RELOAD_UI_WARNING = "Cambiar este ajuste recargará la interfaz del usuario.",
         RELOAD_DIALOG_TITLE = "Requiere recargar la interfaz",
-        RELOAD_DIALOG_TEXT = "Algunos cambios requieren recargar la interfaz para poder aplicarse. Quieres aplicar los cambios y recargar la interfaz?",
+        RELOAD_DIALOG_TEXT =
+        "Algunos cambios requieren recargar la interfaz para poder aplicarse. Quieres aplicar los cambios y recargar la interfaz?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Recargar",
         RELOAD_DIALOG_DISCARD_BUTTON = "Cancelar",
     },
@@ -517,7 +529,7 @@ local localization = {
         RELOAD_DIALOG_RELOAD_BUTTON = "リロード",
         RELOAD_DIALOG_DISCARD_BUTTON = "破棄",
     },
-    zh = { -- provided by Jacko9et
+    zh = {                                                                         -- provided by Jacko9et
         PANEL_NAME = GetString(SI_GAME_MENU_ADDONS),
         AUTHOR = string.format("%s: <<X:1>>", GetString(SI_ADDON_MANAGER_AUTHOR)), -- "Author: <<X:1>>"
         VERSION = "版本: <<X:1>>",
@@ -538,11 +550,12 @@ local localization = {
         WEBSITE = "Odwiedź stronę",
         RELOAD_UI_WARNING = "Zmiany będą widoczne po ponownym załadowaniu UI.",
         RELOAD_DIALOG_TITLE = "Wymagane przeładowanie UI",
-        RELOAD_DIALOG_TEXT = "Niektóre zmiany wymagają ponownego załadowania UI. Czy chcesz teraz ponownie załadować, czy porzucić zmiany?",
+        RELOAD_DIALOG_TEXT =
+        "Niektóre zmiany wymagają ponownego załadowania UI. Czy chcesz teraz ponownie załadować, czy porzucić zmiany?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Przeładuj",
         RELOAD_DIALOG_DISCARD_BUTTON = "Porzuć",
     },
-    br = { -- provided by mlsevero & FelipeS11
+    br = {                                                                         -- provided by mlsevero & FelipeS11
         PANEL_NAME = "Addons",
         AUTHOR = string.format("%s: <<X:1>>", GetString(SI_ADDON_MANAGER_AUTHOR)), -- "Autor: <<X:1>>"
         VERSION = "Versão: <<X:1>>",
@@ -552,12 +565,13 @@ local localization = {
         DONATION = "Doação",
         RELOAD_UI_WARNING = "Mudanças nessa configuração requerem o recarregamento da UI para ter efeito.",
         RELOAD_DIALOG_TITLE = "Recarregamento da UI requerida",
-        RELOAD_DIALOG_TEXT = "Algumas mudanças requerem o recarregamento da UI para ter efeito. Você deseja recarregar agora ou descartar as mudanças?",
+        RELOAD_DIALOG_TEXT =
+        "Algumas mudanças requerem o recarregamento da UI para ter efeito. Você deseja recarregar agora ou descartar as mudanças?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Recarregar",
         RELOAD_DIALOG_DISCARD_BUTTON = "Descartar",
     },
     tr = {
-        PANEL_NAME= "Eklentiler",
+        PANEL_NAME = "Eklentiler",
         AUTHOR = string.format("%s: <<X:1>>", GetString(SI_ADDON_MANAGER_AUTHOR)), -- "Yazar: <<X:1>>"
         VERSION = "Sürüm: <<X:1>>",
         WEBSITE = "Web Sitesini Ziyaret Edin",
@@ -565,9 +579,11 @@ local localization = {
         TRANSLATION = "Çeviri",
         DONATION = "Bağış",
         PANEL_INFO_FONT = "$(CHAT_FONT)|14|soft-shadow-thin",
-        RELOAD_UI_WARNING = "Bu ayarda yapılan değişikliklerin etkili olması için kullanıcı arayüzünün yeniden yüklenmesi gerekir.",
+        RELOAD_UI_WARNING =
+        "Bu ayarda yapılan değişikliklerin etkili olması için kullanıcı arayüzünün yeniden yüklenmesi gerekir.",
         RELOAD_DIALOG_TITLE = "Kullanıcı Arayüzünün Yeniden Yüklenmesi Gerekli",
-        RELOAD_DIALOG_TEXT = "Bazı değişikliklerin etkili olması için kullanıcı arayüzünün yeniden yüklenmesi gerekir. Şimdi yeniden yüklemek mi yoksa değişiklikleri iptal etmek mi istiyorsunuz?",
+        RELOAD_DIALOG_TEXT =
+        "Bazı değişikliklerin etkili olması için kullanıcı arayüzünün yeniden yüklenmesi gerekir. Şimdi yeniden yüklemek mi yoksa değişiklikleri iptal etmek mi istiyorsunuz?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Yeniden Yükle",
         RELOAD_DIALOG_DISCARD_BUTTON = "İptal et",
     },
@@ -582,7 +598,8 @@ local localization = {
         PANEL_INFO_FONT = "$(CHAT_FONT)|14|soft-shadow-thin",
         RELOAD_UI_WARNING = "Зміни цього параметра потребують перезавантаження інтерфейсу, аби вони набули чинності.",
         RELOAD_DIALOG_TITLE = "Необхідне перезавантаження інтерфейсу",
-        RELOAD_DIALOG_TEXT = "Деякі зміни потребують перезавантаження інтерфейсу, аби вони набули чинності. Перезавантажити зараз чи бажаєте скасувати зміни?",
+        RELOAD_DIALOG_TEXT =
+        "Деякі зміни потребують перезавантаження інтерфейсу, аби вони набули чинності. Перезавантажити зараз чи бажаєте скасувати зміни?",
         RELOAD_DIALOG_RELOAD_BUTTON = "Перезавантажити",
         RELOAD_DIALOG_DISCARD_BUTTON = "Скасувати",
     },
@@ -591,7 +608,7 @@ local localization = {
 do
     local EsoKR = EsoKR
     if EsoKR and EsoKR:isKorean() then
-        util.L = ZO_ShallowTableCopy({ -- provided by whya5448
+        util.L = ZO_ShallowTableCopy({                                                 -- provided by whya5448
             PANEL_NAME = EsoKR:E("애드온"),
             AUTHOR = string.format("%s: <<X:1>>", GetString(SI_ADDON_MANAGER_AUTHOR)), -- "Author: <<X:1>>"
             VERSION = EsoKR:E("버전: <<X:1>>"),
@@ -799,7 +816,6 @@ end
 -- panel = userdata; the panel returned by the :RegisterOptionsPanel method
 local locSettings = GetString(SI_GAME_MENU_SETTINGS)
 function lam:OpenToPanel(panel)
-
     -- find and select the panel's row in addon list
 
     local addonList = lam.addonList
@@ -858,19 +874,19 @@ local function TwinOptionsContainer(parent, leftWidget, rightWidget)
     local container = wm:CreateControl("$(parent)TwinContainer" .. tostring(TwinOptionsContainer_Index),
         cParent, CT_CONTROL)
     container:SetResizeToFitDescendents(true)
-    container:SetAnchor(select(2, leftWidget:GetAnchor(0) ))
+    container:SetAnchor(select(2, leftWidget:GetAnchor(0)))
 
     leftWidget:ClearAnchors()
     leftWidget:SetAnchor(TOPLEFT, container, TOPLEFT)
     rightWidget:SetAnchor(TOPLEFT, leftWidget, TOPRIGHT, 5, 0)
 
-    leftWidget:SetWidth( leftWidget:GetWidth() - 2.5 ) -- fixes bad alignment with 'full' controls
-    rightWidget:SetWidth( rightWidget:GetWidth() - 2.5 )
+    leftWidget:SetWidth(leftWidget:GetWidth() - 2.5)   -- fixes bad alignment with 'full' controls
+    rightWidget:SetWidth(rightWidget:GetWidth() - 2.5)
 
     leftWidget:SetParent(container)
     rightWidget:SetParent(container)
 
-    container.data = {type = "container"}
+    container.data = { type = "container" }
     container.panel = panel
     return container
 end
@@ -880,9 +896,9 @@ end
 --controls anchoring of these controls in the panel
 local function CreateOptionsControls(panel)
     local addonID = panel:GetName()
-    if(optionsState[addonID] == OPTIONS_CREATED) then
+    if (optionsState[addonID] == OPTIONS_CREATED) then
         return false
-    elseif(optionsState[addonID] == OPTIONS_CREATION_RUNNING) then
+    elseif (optionsState[addonID] == OPTIONS_CREATION_RUNNING) then
         return true
     end
     optionsState[addonID] = OPTIONS_CREATION_RUNNING
@@ -943,7 +959,7 @@ local function CreateOptionsControls(panel)
         end
 
         CreateWidgetsInPanel = function(parent, widgetDataTable, startIndex, endIndex)
-            for i=startIndex,endIndex do
+            for i = startIndex, endIndex do
                 local widgetData = widgetDataTable[i]
                 if not widgetData then
                     PrintLater("Skipped creation of missing entry in the settings menu of " .. addonID .. ".")
@@ -956,15 +972,18 @@ local function CreateOptionsControls(panel)
                         offsetX = 5
                     end
 
-                    err, anchorOffset, lastAddedControl, wasHalf = CreateAndAnchorWidget(parent, widgetData, offsetX, anchorOffset, lastAddedControl, wasHalf)
+                    err, anchorOffset, lastAddedControl, wasHalf = CreateAndAnchorWidget(parent, widgetData, offsetX,
+                        anchorOffset, lastAddedControl, wasHalf)
                     if err then
-                        PrintLater(("Could not create %s '%s' of %s."):format(widgetData.type, GetStringFromValue(widgetData.name or "unnamed"), addonID))
+                        PrintLater(("Could not create %s '%s' of %s."):format(widgetData.type,
+                            GetStringFromValue(widgetData.name or "unnamed"), addonID))
                         logger:Error(err)
                     end
 
                     if isSubmenu then
                         if SetupCreationCalls(lastAddedControl, widgetData.controls) then
-                            PrintLater(("The sub menu '%s' of %s is missing some entries."):format(GetStringFromValue(widgetData.name or "unnamed"), addonID))
+                            PrintLater(("The sub menu '%s' of %s is missing some entries."):format(
+                            GetStringFromValue(widgetData.name or "unnamed"), addonID))
                         end
                     end
                 end
@@ -975,7 +994,7 @@ local function CreateOptionsControls(panel)
             if #fifo > 0 then
                 local nextCall = table.remove(fifo, 1)
                 nextCall()
-                if(nextCall == PrepareForNextPanel) then
+                if (nextCall == PrepareForNextPanel) then
                     DoCreateSettings()
                 else
                     zo_callLater(DoCreateSettings, THROTTLE_TIMEOUT)
@@ -1019,14 +1038,15 @@ end
 local CheckSafetyAndInitialize
 local function ShowSetHandlerWarning(panel, handler)
     local hint
-    if(handler == "OnShow" or handler == "OnEffectivelyShown") then
+    if (handler == "OnShow" or handler == "OnEffectivelyShown") then
         hint = "'LAM-PanelControlsCreated' or 'LAM-PanelOpened'"
-    elseif(handler == "OnHide" or handler == "OnEffectivelyHidden") then
+    elseif (handler == "OnHide" or handler == "OnEffectivelyHidden") then
         hint = "'LAM-PanelClosed'"
     end
 
     if hint then
-        local message = ("Setting a handler on a panel is not recommended. Use the global callback %s instead. (%s on %s)"):format(hint, handler, panel.data.name)
+        local message = ("Setting a handler on a panel is not recommended. Use the global callback %s instead. (%s on %s)")
+        :format(hint, handler, panel.data.name)
         PrintLater(message)
         logger:Warn(message)
     end
@@ -1054,7 +1074,7 @@ function lam:RegisterAddonPanel(addonID, panelData)
         return str:gsub("|[Cc]%x%x%x%x%x%x", ""):gsub("|[Rr]", "")
     end
 
-    local filterParts = {panelData.name, nil, nil}
+    local filterParts = { panelData.name, nil, nil }
     -- append keywords and author separately, the may be nil
     filterParts[#filterParts + 1] = panelData.keywords
     filterParts[#filterParts + 1] = panelData.author
@@ -1075,7 +1095,6 @@ function lam:RegisterAddonPanel(addonID, panelData)
 
     return panel --return for authors creating options manually
 end
-
 
 --METHOD: REGISTER OPTION CONTROLS
 --registers the options you want shown for your addon
@@ -1206,7 +1225,7 @@ end
 local function CreateSearchFilterBox(name, parent)
     local boxControl = wm:CreateControl(name, parent, CT_CONTROL)
 
-    local srchButton =  wm:CreateControl("$(parent)Button", boxControl, CT_BUTTON)
+    local srchButton = wm:CreateControl("$(parent)Button", boxControl, CT_BUTTON)
     srchButton:SetDimensions(32, 32)
     srchButton:SetAnchor(LEFT, nil, LEFT, 2, 0)
     srchButton:SetNormalTexture("EsoUI/Art/LFG/LFG_tabIcon_groupTools_up.dds")
@@ -1377,12 +1396,14 @@ local function CreateAddonSettingsWindow()
     panelContainer:SetDimensions(645, 675)
 
     local defaultButton = wm:CreateControlFromVirtual("$(parent)ResetToDefaultButton", tlw, "ZO_DialogButton")
-    ZO_KeybindButtonTemplate_Setup(defaultButton, "OPTIONS_LOAD_DEFAULTS", HandleLoadDefaultsPressed, GetString(SI_OPTIONS_DEFAULTS))
+    ZO_KeybindButtonTemplate_Setup(defaultButton, "OPTIONS_LOAD_DEFAULTS", HandleLoadDefaultsPressed,
+        GetString(SI_OPTIONS_DEFAULTS))
     defaultButton:SetAnchor(TOPLEFT, panelContainer, BOTTOMLEFT, 0, 2)
     lam.defaultButton = defaultButton
 
     local applyButton = wm:CreateControlFromVirtual("$(parent)ApplyButton", tlw, "ZO_DialogButton")
-    ZO_KeybindButtonTemplate_Setup(applyButton, "OPTIONS_APPLY_CHANGES", HandleReloadUIPressed, GetString(SI_ADDON_MANAGER_RELOAD))
+    ZO_KeybindButtonTemplate_Setup(applyButton, "OPTIONS_APPLY_CHANGES", HandleReloadUIPressed,
+        GetString(SI_ADDON_MANAGER_RELOAD))
     applyButton:SetAnchor(TOPRIGHT, panelContainer, BOTTOMRIGHT, 0, 2)
     applyButton:SetHidden(true)
     lam.applyButton = applyButton
@@ -1395,7 +1416,7 @@ end
 local safeToInitialize = false
 local hasInitialized = false
 
-local eventHandle = table.concat({MAJOR, MINOR}, "r")
+local eventHandle = table.concat({ MAJOR, MINOR }, "r")
 local function OnLoad(_, addonName)
     -- wait for the first loaded event
     em:UnregisterForEvent(eventHandle, EVENT_ADD_ON_LOADED)
@@ -1416,14 +1437,15 @@ em:RegisterForEvent(eventHandle, EVENT_PLAYER_ACTIVATED, OnActivated)
 
 function CheckSafetyAndInitialize(addonID)
     if not safeToInitialize then
-        local msg = string.format("The panel with id '%s' was registered before addon loading has completed. This might break the AddOn Settings menu.", addonID)
+        local msg = string.format(
+        "The panel with id '%s' was registered before addon loading has completed. This might break the AddOn Settings menu.",
+            addonID)
         PrintLater(msg)
     end
     if not hasInitialized then
         hasInitialized = true
     end
 end
-
 
 --TODO documentation
 function lam:GetAddonPanelContainer()
@@ -1432,7 +1454,6 @@ function lam:GetAddonPanelContainer()
     return window:GetNamedChild("PanelContainer")
 end
 
-
 --TODO documentation
 function lam:GetAddonSettingsFragment()
     assert(hasInitialized or safeToInitialize)
@@ -1440,11 +1461,11 @@ function lam:GetAddonSettingsFragment()
         local window = CreateAddonSettingsWindow()
         LAMAddonSettingsFragment = ZO_FadeSceneFragment:New(window, true, 100)
         LAMAddonSettingsFragment:RegisterCallback("StateChange", function(oldState, newState)
-            if(newState == SCENE_FRAGMENT_SHOWN) then
+            if (newState == SCENE_FRAGMENT_SHOWN) then
                 InitKeybindActions()
                 PushActionLayerByName("OptionsWindow")
                 OpenCurrentPanel()
-            elseif(newState == SCENE_FRAGMENT_HIDDEN) then
+            elseif (newState == SCENE_FRAGMENT_HIDDEN) then
                 CloseCurrentPanel()
                 RemoveActionLayerByName("OptionsWindow")
                 ShowReloadDialogIfNeeded()
@@ -1455,13 +1476,12 @@ function lam:GetAddonSettingsFragment()
     return LAMAddonSettingsFragment
 end
 
-
 ------------------------------------------
 -- Temporary LAM to LHAS console converter
 ------------------------------------------
 
 local function addToControlTable(newOption, t)
-    t.indexed[#t.indexed + 1 ] = newOption
+    t.indexed[#t.indexed + 1] = newOption
     if newOption.label then
         t.nameMap[newOption.label] = newOption
     end
@@ -1479,20 +1499,20 @@ local function LAMtoHASDropdownConverter(option, controlTable)
     }
 
     newOption.setFunction = function(combobox, name, item) option.setFunc(item.data) end
-    
+
     local items = {}
     local labelMap = {}
     if not option.choicesValues then
         option.choicesValues = option.choices
     end
     for i = 1, # option.choices do
-        items[i] = {name = option.choices[i], data = option.choicesValues[i]}
+        items[i] = { name = option.choices[i], data = option.choicesValues[i] }
         if option.choicesValues[i] then
             labelMap[items[i].data] = items[i].name
         end
     end
     newOption.items = items
-    newOption.getFunction = function() return labelMap[option.getFunc()]  end
+    newOption.getFunction = function() return labelMap[option.getFunc()] end
     addToControlTable(newOption, controlTable)
 end
 
@@ -1506,7 +1526,6 @@ local function LamtoHASSubmenuConverter(optionsTable, controlTable)
 end
 
 local function LamToHASDescriptionConverter(entry, controlTable)
-    
     local newOption = {
         type = LibHarvensAddonSettings.ST_LABEL,
         label = entry.title,
@@ -1550,9 +1569,9 @@ function lam:convertLamOptionsToHasTable(optionsTable, controlTable)
         indexed = {},
         nameMap = {},
     }
-    
+
     -- LAMHASMissing = {}
-    
+
     for i, entry in ipairs(optionsTable) do
         local newType = LAMtoHAS[entry.type]
         if newType and not entry.isPCOnly then
@@ -1575,9 +1594,9 @@ function lam:convertLamOptionsToHasTable(optionsTable, controlTable)
         elseif LAMtoHASSpecial[entry.type] then
             LAMtoHASSpecial[entry.type](entry, controlTable)
         else
-           -- LHAS does not have an equivalent for:
-           -- iconPicker
-           -- texture
+            -- LHAS does not have an equivalent for:
+            -- iconPicker
+            -- texture
         end
     end
     return controlTable
@@ -1592,7 +1611,7 @@ function lam:registerConsoleAddonPanel(addonID, panelData)
         local LHA = LibHarvensAddonSettings
         local options = {
             allowDefaults = panelData.registerForDefaults, --will allow users to reset the settings to default values
-            allowRefresh = panelData.registerForRefresh, --if this is true, when one of settings is changed, all other settings will be checked for state change (disable/enable)
+            allowRefresh = panelData.registerForRefresh,   --if this is true, when one of settings is changed, all other settings will be checked for state change (disable/enable)
             defaultsFunction = panelData.resetFunc,
         }
 
@@ -1608,7 +1627,7 @@ function lam:registerConsoleOptionControls(addonID, optionsTable)
     if lam.LHASConversion.settingTables[addonID] then
         local settings = lam.LHASConversion.settingTables[addonID]
         local LHA = LibHarvensAddonSettings
-        lam.LHASConversion.optionControls [addonID]= lam:convertLamOptionsToHasTable(optionsTable)
+        lam.LHASConversion.optionControls[addonID] = lam:convertLamOptionsToHasTable(optionsTable)
         local controlTable = lam.LHASConversion.optionControls[addonID]
 
         for i = 1, #controlTable.indexed do

@@ -6,8 +6,6 @@ local function debug(msg)
     d("[DPS Tracker] " .. tostring(msg))
 end
 
-
-
 DPSContributionTracker.savedVars = nil
 DPSContributionTracker.combatStartTime = 0
 DPSContributionTracker.combatEndTime = 0
@@ -18,16 +16,16 @@ DPSContributionTracker.maxEnemyHealth = 0
 DPSContributionTracker.inCombat = false
 DPSContributionTracker.hasReported = false
 
-
 -- get enemy health
 function DPSContributionTracker:GetEnemyHealth()
     local unitTag = "reticleover"
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH)
-        self.maxEnemyHealth = maxHP
-        d("Detected enemy max health: " .. tostring(maxHP))
-    else
-        d("No valid enemy target detected")
+        local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH, POWERVAR_MAX)
+
+        if maxHP and maxHP > 0 then
+            self.maxEnemyHealth = maxHP
+            d("Detected enemy max health: " .. tostring(maxHP))
+        end
     end
 end
 
@@ -77,8 +75,6 @@ end
 
 -- INIT addon
 local function Initialize()
-    d("Initializing addon")
-
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
         1,
@@ -91,8 +87,46 @@ local function Initialize()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
         function(...) DPSContributionTracker:OnCombatEvent(...) end)
+    DPSContributionTracker:CreateSettingsMenu()
+end
 
-    d("Registered combat event")
+--Settings Menu
+function DPSContributionTracker:CreateSettingsMenu()
+    local LAM = LibAddonMenu2
+    local panelName = "DPSContributionTrackerSettings"
+
+    local panelData = {
+        type = "panel",
+        name = "DPS Contribution Tracker",
+        displayName = "DPSContributionTracker",
+        author = "YFNatey",
+        version = "1.0",
+        registerForRefresh = true,
+        registerForDefaults = true
+    }
+
+    local optionsTable = {
+        {
+            type = "checkbox",
+            name = "Enable Notifications",
+            tooltip = "Show messages in chat when combat ends.",
+            getFunc = function() return self.savedVars.showNotifications end,
+            setFunc = function(value) self.savedVars.showNotifications = value end,
+            default = true,
+        },
+        {
+            type = "button",
+            name = "Reset Saved Data",
+            tooltip = "Resets the stored DPS history.",
+            func = function()
+                self.savedVars.dpsHistory = {}
+                d("DPS history reset")
+            end,
+        },
+    }
+
+    LAM:RegisterAddonPanel(panelName, panelData)
+    LAM:RegisterOptionControls(panelName, optionsTable)
 end
 
 -- Event Managers
