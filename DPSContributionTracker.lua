@@ -18,14 +18,37 @@ DPSContributionTracker.hasReported = false
 
 -- get enemy health
 function DPSContributionTracker:GetEnemyHealth()
-    local unitTag = "reticleover"
+    d("running GetEnemeyHealth()")
+    local unitTag
+    if IsConsoleUI() then
+        unitTag = "boss1"
+    else
+        unitTag = "reticleover"
+    end
+    d("unitTag = " .. tostring(unitTag))
+    d("Exists: " .. tostring(DoesUnitExist(unitTag)))
+    d("Attackable: " .. tostring(IsUnitAttackable(unitTag)))
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH, POWERVAR_MAX)
+        if not IsConsoleUI() then
+            local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH, POWERVAR_MAX)
 
-        if maxHP and maxHP > 0 then
-            self.maxEnemyHealth = maxHP
-            d("Detected enemy max health: " .. tostring(maxHP))
+            if maxHP and maxHP > 0 then
+                self.maxEnemyHealth = maxHP
+                d("PC: Detected enemy max health: " .. tostring(maxHP))
+            end
+            -- For console
+        else
+            local current, max, effectiveMax = GetUnitPower(unitTag, COMBAT_MECHANIC_FLAGS_HEALTH)
+            d(string.format("Console: Current HP: %.0f | Max HP: %.0f | Effective Max: %.0f", current, max, effectiveMax))
+            if max and max > 0 then
+                self.maxEnemyHealth = max
+                d("Console: Detected enemy max health: " .. tostring(max))
+            else
+                d("Console: Failed to detect max enemy HP")
+            end
         end
+    else
+        d("Unit does not exist or is not attackable")
     end
 end
 
