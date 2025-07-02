@@ -4,7 +4,9 @@ local defaults = {
     fontSize = 30,
     labelPosX = 100,
     labelPosY = 100,
-    showNotifications = false
+    showNotifications = false,
+    bossHistory = {},
+    fightCount = 0
 }
 
 DPSContributionTracker = {}
@@ -111,7 +113,7 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
 end
 
 --=============================================================================
--- GENERATE REPORT
+-- UPDATE STATUS
 --=============================================================================
 function DPSContributionTracker:UpdateStatus()
     if self.inCombat and self.bossName ~= '' then
@@ -122,80 +124,86 @@ function DPSContributionTracker:UpdateStatus()
         end
     end
 
-    -- Get user input
-    local supportSets = self.savedVars.supportSetReduction or 0
-    local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
-
-    if adjustedGroupDpsSize < 1 then
-        adjustedGroupDpsSize = 1
-    end
-
     -- Calculate at end of fight
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
-        local actualBossDamage = self.maxEnemyHealth - self.lowestEnemyHealth
-        local bossDamagePercent = (actualBossDamage / self.maxEnemyHealth) * 100
+        -- Get user settings
+        local supportSets = self.savedVars.supportSetReduction or 0
+        local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
+        if adjustedGroupDpsSize < 1 then
+            adjustedGroupDpsSize = 1
+        end
 
+        -- Handle group wipe scenarios
+        local actualBossDamage = self.maxEnemyHealth - self.lowestEnemyHealth
         if actualBossDamage <= 0 then
             actualBossDamage = 1
         end
 
-        local expectedDPS = actualBossDamage / self.timeElapsed / adjustedGroupDpsSize
         local playerDPS = self.playerDamage / self.timeElapsed
         local groupDPS = actualBossDamage / self.timeElapsed
+        local expectedDPS = actualBossDamage / self.timeElapsed / adjustedGroupDpsSize
         local playerContribution = (self.playerDamage / actualBossDamage) * 100
         local expectedDMG = actualBossDamage / self.savedVars.groupDpsSize
         local expectedContribution = (1 / self.savedVars.groupDpsSize) * 100
+        local outcome = self.lowestEnemyHealth == 0 and "KILL" or "WIPE"
 
-        -- Display in GUI
-        local outcome = self.lowestEnemyHealth == 0 and "KILL" or
-            string.format("WIPE (%.1f%% remaining)",
-                (self.lowestEnemyHealth / self.maxEnemyHealth) * 100
-            )
+        -- Format for GUI
+        local outcomeDisplay = outcome == "KILL" and "KILL" or
+            string.format("WIPE (%.1f%% remaining)", (self.lowestEnemyHealth / self.maxEnemyHealth) * 100)
 
-        local bossText = string.format("%s - %s - HP: %s - Fight Time: %.1fs",
-            self.bossName,
-            outcome,
-            string.format("%d", self.maxEnemyHealth),
-            self.timeElapsed
-        )
+        local bossText = string.format("%s - %s - HP: %d - Fight Time: %.1fs",
+            self.bossName, outcomeDisplay, self.maxEnemyHealth, self.timeElapsed)
 
-        local groupText = string.format(
-            "Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
-            self.savedVars.groupDpsSize,
-            supportSets,
-            supportSets * 20,
-            groupDPS
-        )
+        local groupText = string.format("Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
+            self.savedVars.groupDpsSize, supportSets, supportSets * 20, groupDPS)
 
-        local damageText = string.format(
-            "Your Damage Done: %.0f - Expected Damage Done: %.0f",
-            self.playerDamage,
-            expectedDMG
-        )
+        local damageText = string.format("Your Damage Done: %.0f - Expected Damage Done: %.0f",
+            self.playerDamage, expectedDMG)
 
         local dpsText = string.format("Your DPS: %.1f - Expected DPS: %.1f",
-            playerDPS,
-            expectedDPS
-        )
+            playerDPS, expectedDPS)
 
         local contributionText = string.format("Your Contribution: %.1f%% - Expected Contribution: %.1f%%",
-            playerContribution,
-            expectedContribution
-        )
+            playerContribution, expectedContribution)
 
+        -- Update GUI
         line1_BossInfo:SetText(bossText)
         line2_GroupSetup:SetText(groupText)
         line3_DamageComparison:SetText(damageText)
         line4_DPSComparison:SetText(dpsText)
         line5_Contribution:SetText(contributionText)
 
+        -- Create bossData object
+        local bossData = {
+            bossText,
+            groupText,
+            damageText,
+            dpsText,
+            contributionText
+        }
 
-        -- Debug info
-        self:DebugPrint(string.format(
-            "Debug: MaxHP=%d, LowestHP=%d, Damage to boss=%d",
+        -- Save to table
+        table.insert(self.savedVars.bossHistory, 1, bossData)
+
+        -- Debug output
+        self:DebugPrint(string.format("Debug: MaxHP=%d, LowestHP=%d, Damage=%d",
             self.maxEnemyHealth, self.lowestEnemyHealth, actualBossDamage))
+
+        self:DebugPrint(string.format("Saved boss fight: %s - %s", self.bossName, outcome))
+
         self.hasReported = true
     end
+end
+
+--=============================================================================
+-- DISPLAY LOG
+--=============================================================================
+function DisplayFight(fightData)
+    line1_BossInfo:SetText(fightData[1])
+    line2_GroupSetup:SetText(fightData[2])
+    line3_DamageComparison:SetText(fightData[3])
+    line4_DPSComparison:SetText(fightData[4])
+    line5_Contribution:SetText(fightData[5])
 end
 
 --=============================================================================
@@ -212,7 +220,9 @@ local function Initialize()
             fontSize = 30,
             labelPosX = 100,
             labelPosY = 100,
-            showNotifications = false
+            showNotifications = false,
+            bossHistory = {},
+            fightCount = 0
         }
     )
     local labels = DPSContributionTracker:GetLabels()
@@ -282,16 +292,37 @@ function DPSContributionTracker:CreateSettingsMenu()
 
     local optionsTable = {
 
+
         [1] = {
-            type = "button",
-            name = "Reset Saved Data. (Not functional)",
-            tooltip = "Resets the stored DPS history.",
-            func = function()
-                self.savedVars.dpsHistory = {}
-                self:DebugPrint("DPS history reset")
-            end,
+            type = "divider",
+            name = "Combat Settings",
         },
         [2] = {
+            type = "description",
+            text = "Fight Logs (In Development)"
+        },
+        [3] = {
+            type = "button",
+            name = "View Boss History",
+            tooltip = "Click to cycle through recent boss fights",
+        },
+        [4] = {
+            type = "button",
+            name = "Clear Boss History",
+            tooltip = "Delete all cached boss fights",
+            func = function()
+                self.savedVars.bossHistory = {}
+                d("Boss fight history cleared")
+            end,
+        },
+        [5] = {
+            type = "divider",
+        },
+        [6] = {
+            type = "description",
+            text = "Group Composition"
+        },
+        [7] = {
             type = "slider",
             name = "Nmmber of DPS Players in group",
             tooltip = "Adjust the number of full damage DPS in group. Affects the expeccted DPS",
@@ -302,7 +333,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.groupDpsSize = value end,
             default = defaults.groupDpsSize,
         },
-        [3] = {
+        [8] = {
             type = "slider",
             name = "Nmmber of DPS support sets in group",
             tooltip = "Each support set is estimated to be a 20% damage loss",
@@ -313,7 +344,15 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.supportSetReduction = value end,
             default = defaults.supportSetReduction,
         },
-        [4] = {
+
+        [9] = {
+            type = "divider",
+        },
+        [10] = {
+            type = "description",
+            text = "Adjust UI"
+        },
+        [11] = {
             type = "slider",
             name = "Font Size",
             tooltip = "Adjust label font size.",
@@ -327,7 +366,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 24,
         },
-        [5] = {
+        [12] = {
             type = "slider",
             name = "Label X Position",
             min = 0,
@@ -340,7 +379,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 100,
         },
-        [6] = {
+        [13] = {
             type = "slider",
             name = "Label Y Position",
             min = 0,
@@ -353,7 +392,10 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 100,
         },
-        [7] = {
+        [14] = {
+            type = "divider",
+        },
+        [15] = {
             type = "checkbox",
             name = "Enable Debug Notifications",
             tooltip = "For testing",

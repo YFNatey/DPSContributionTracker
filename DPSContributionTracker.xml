@@ -8,7 +8,7 @@
                     name="line1_BossInfo"
                     font="$(BOLD_FONT)|24"
                     color="FFFFFF"
-                    text="DPS Info Line 1"
+                    text=""
                     hidden="false"
                     drawLevel="3">
                     <Dimensions x="900" y="40" />
@@ -17,7 +17,7 @@
                     name="line2_GroupSetup"
                     font="$(BOLD_FONT)|24"
                     color="FFFFFF"
-                    text="DPS Info Line 2"
+                    text=""
                     hidden="false"
                     drawLevel="3">
 
@@ -27,7 +27,7 @@
                     name="line3_DamageComparison"
                     font="$(BOLD_FONT)|24"
                     color="FFFFFF"
-                    text="DPS Info Line 3"
+                    text=""
                     hidden="false"
                     drawLevel="3">
                 
@@ -37,7 +37,7 @@
                     name="line4_DPSComparison"
                     font="$(BOLD_FONT)|24"
                     color="FFFFFF"
-                    text="DPS Info Line 4"
+                    text=""
                     hidden="false"
                     drawLevel="3">
             
@@ -47,7 +47,7 @@
                     name="line5_Contribution"
                     font="$(BOLD_FONT)|24"
                     color="FFFFFF"
-                    text="DPS Info Line 5"
+                    text=""
                     hidden="false"
                     drawLevel="3">
                    
