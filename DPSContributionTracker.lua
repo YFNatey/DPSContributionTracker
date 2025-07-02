@@ -79,11 +79,20 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
                                               sourceName, sourceType, targetName, targetType,
                                               hitValue, powerType, damageType, combatMechanic,
                                               sourceUnitId, targetUnitId, abilityId, overflow)
+    -- table of acceptable damage types
+    local DAMAGE_RESULTS = {
+        [ACTION_RESULT_DAMAGE] = true,
+        [ACTION_RESULT_DOT_TICK_CRITICAL] = true,
+        [ACTION_RESULT_DAMAGE_SHIELDED] = true,
+        [ACTION_RESULT_DOT_TICK] = true,
+        [ACTION_RESULT_CRITICAL_DAMAGE] = true,
+    }
+
     -- Reformat targetName to remove the gender suffix and match the unitTag string
     local formattedTargetName = targetName:match("([^%^]+)")
 
     -- Sum the player damage to the boss
-    if sourceType == 1 and hitValue > 0 and formattedTargetName == self.bossName and result == 1 then
+    if DAMAGE_RESULTS[result] and sourceType == 1 and hitValue > 0 and formattedTargetName == self.bossName then
         self.playerDamage = self.playerDamage + hitValue
 
         d(string.format("Player hit for %d", hitValue))
@@ -92,14 +101,13 @@ end
 
 -- Update enemy health and print DPS info
 function DPSContributionTracker:UpdateStatus()
+    -- Get user input
     local supportSets = self.savedVars.supportSetReduction or 0
     local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
 
-    -- Make sure adjustedGroupDpsSize never goes below some minimum (like 1)
     if adjustedGroupDpsSize < 1 then
         adjustedGroupDpsSize = 1
     end
-
 
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
         local expectedDPS = self.maxEnemyHealth / self.timeElapsed / adjustedGroupDpsSize
@@ -107,6 +115,7 @@ function DPSContributionTracker:UpdateStatus()
         local Contribution = (self.playerDamage / self.maxEnemyHealth) * 100
         local expectedDMG = self.maxEnemyHealth / self.savedVars.groupDpsSize
         local baselineContribution = (1 / self.savedVars.groupDpsSize) * 100
+
         d("group dps size" .. tostring(adjustedGroupDpsSize))
         d(string.format("Enemy HP: %d", self.maxEnemyHealth))
         d(string.format(
@@ -114,6 +123,7 @@ function DPSContributionTracker:UpdateStatus()
             self
             .playerDamage, actualDPS, expectedDMG, expectedDPS,
             Contribution, baselineContribution))
+
         self.hasReported = true
     end
 end
@@ -184,7 +194,7 @@ function DPSContributionTracker:CreateSettingsMenu()
         [4] = {
             type = "slider",
             name = "Nmmber of DPS support sets in group",
-            tooltip = "Each support set is estimated to by a 20% damage loss",
+            tooltip = "Each support set is estimated to be a 20% damage loss",
             min = 0,
             max = 4,
             step = 1,
