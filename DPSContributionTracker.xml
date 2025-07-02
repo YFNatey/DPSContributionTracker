@@ -11,7 +11,6 @@
                     text="DPS Info Line 1"
                     hidden="false"
                     drawLevel="3">
-                    <Anchor point="TOPLEFT" offsetX="100" offsetY="100" />
                     <Dimensions x="900" y="40" />
                 </Label>
                 <Label
@@ -21,7 +20,7 @@
                     text="DPS Info Line 2"
                     hidden="false"
                     drawLevel="3">
-                    <Anchor point="TOPLEFT" offsetX="100" offsetY="130" />
+
                     <Dimensions x="900" y="30" />
                 </Label>
                 <Label
@@ -31,7 +30,27 @@
                     text="DPS Info Line 3"
                     hidden="false"
                     drawLevel="3">
-                    <Anchor point="TOPLEFT" offsetX="100" offsetY="160" />
+                
+                    <Dimensions x="900" y="40" />
+                </Label>
+                <Label
+                    name="DPSContributionTracker_Label4"
+                    font="$(BOLD_FONT)|24"
+                    color="FFFFFF"
+                    text="DPS Info Line 4"
+                    hidden="false"
+                    drawLevel="3">
+            
+                    <Dimensions x="900" y="40" />
+                </Label>
+                <Label
+                    name="DPSContributionTracker_Label5"
+                    font="$(BOLD_FONT)|24"
+                    color="FFFFFF"
+                    text="DPS Info Line 5"
+                    hidden="false"
+                    drawLevel="3">
+                   
                     <Dimensions x="900" y="40" />
                 </Label>
             </Controls>

@@ -21,7 +21,9 @@ DPSContributionTracker.inCombat = false
 DPSContributionTracker.hasReported = false
 DPSContributionTracker.bossName = ''
 
--- get enemy health
+--=============================================================================
+-- GET ENEMY HEALTH
+--=============================================================================
 function DPSContributionTracker:GetEnemyHealth()
     d("running GetEnemeyHealth()")
     local unitTag
@@ -56,7 +58,9 @@ function DPSContributionTracker:GetEnemyHealth()
     end
 end
 
--- Get combat state
+--=============================================================================
+-- COMBAT UPDATES
+--=============================================================================
 function DPSContributionTracker:OnCombatStateChanged(inCombat)
     if inCombat then
         self.inCombat = true
@@ -144,7 +148,9 @@ function DPSContributionTracker:UpdateStatus()
     end
 end
 
--- INIT addon
+--=============================================================================
+-- INITIALIZE DEFAULTS
+--=============================================================================
 local function Initialize()
     DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
@@ -160,6 +166,14 @@ local function Initialize()
             labelPosY = 100
         }
     )
+    local labels = DPSContributionTracker:GetLabels()
+    for i, label in ipairs(labels) do
+        if label then
+            label:SetHidden(false)
+        end
+    end
+
+    DPSContributionTracker:UpdateLabelSettings()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
         function(...) DPSContributionTracker:OnCombatEvent(...) end)
@@ -168,16 +182,36 @@ local function Initialize()
 end
 
 
--- Adjust UI
+--=============================================================================
+-- UI MANAGEMENT
+--=============================================================================
+-- Get all labels
+function DPSContributionTracker:GetLabels()
+    return {
+        _G["DPSContributionTracker_Label1"],
+        _G["DPSContributionTracker_Label2"],
+        _G["DPSContributionTracker_Label3"],
+        _G["DPSContributionTracker_Label4"],
+        _G["DPSContributionTracker_Label5"]
+    }
+end
+
 function DPSContributionTracker:UpdateLabelSettings()
-    -- Defaults for initial debugging, will change later
     local fontSize = self.savedVars.fontSize or 48
     local posX = self.savedVars.labelPosX or 500
     local posY = self.savedVars.labelPosY or 300
+    local labels = self:GetLabels()
 
-    DPSContributionTracker_Label:SetFont(string.format("$(BOLD_FONT)|%d", fontSize))
-    DPSContributionTracker_Label:ClearAnchors()
-    DPSContributionTracker_Label:SetAnchor(CENTER, GuiRoot, CENTER, 0, 0)
+    for i, label in ipairs(labels) do
+        if label then
+            label:SetFont(string.format("$(BOLD_FONT)|%d", fontSize))
+            label:ClearAnchors()
+            local yOffset = posY + (i - 1) * 30
+            label:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, posX, yOffset)
+        else
+            d("Warning: Label " .. i .. " not found")
+        end
+    end
 end
 
 --Settings Menu
@@ -281,7 +315,9 @@ function DPSContributionTracker:CreateSettingsMenu()
     LAM:RegisterOptionControls(panelName, optionsTable)
 end
 
--- Event Managers
+--=============================================================================
+-- EVENT MANAGERS
+--=============================================================================
 -- Register start and stop for combat state
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
     function(_, inCombat)
