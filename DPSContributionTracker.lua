@@ -9,7 +9,6 @@ local defaults = {
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
-
 DPSContributionTracker.savedVars = nil
 DPSContributionTracker.combatStartTime = 0
 DPSContributionTracker.combatEndTime = 0
@@ -17,9 +16,13 @@ DPSContributionTracker.timeElapsed = 0
 DPSContributionTracker.playerDamage = 0
 DPSContributionTracker.currentEnemyHealth = 0
 DPSContributionTracker.maxEnemyHealth = 0
+DPSContributionTracker.lowestEnemyHealth = 0
 DPSContributionTracker.inCombat = false
 DPSContributionTracker.hasReported = false
 DPSContributionTracker.bossName = ''
+DPSContributionTracker.lastHealthCheck = 0
+DPSContributionTracker.healthCheckInterval = 2000
+
 
 --=============================================================================
 -- GET ENEMY HEALTH
@@ -31,35 +34,30 @@ function DPSContributionTracker:GetEnemyHealth()
     -- For Console. reticleover is disabled on console
     if IsConsoleUI() then
         unitTag = "boss1"
-        self.bossName = GetUnitName(unitTag)
-    else
-        unitTag = "reticleover"
+        if not self.bossName or self.bossName == '' then
+            self.bossName = GetUnitName(unitTag)
+        end
     end
 
+
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        -- For PC
-        if not IsConsoleUI() then
-            local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH, POWERVAR_MAX)
-            if maxHP and maxHP > 0 then
-                self.maxEnemyHealth = maxHP
-                d("PC: Detected enemy max health: " .. tostring(maxHP))
-            end
-            -- For console
-        else
-            local current, max, effectiveMax = GetUnitPower(unitTag, COMBAT_MECHANIC_FLAGS_HEALTH)
-            d(string.format("Console: Current HP: %.0f | Max HP: %.0f | Effective Max: %.0f", current, max, effectiveMax))
-            if max and max > 0 then
-                self.maxEnemyHealth = max
-                d("Console: Detected enemy max health: " .. tostring(max))
-            else
-                d("Console: Failed to detect max enemy HP")
+        -- For console
+
+        local current, max, effectiveMax = GetUnitPower(unitTag, COMBAT_MECHANIC_FLAGS_HEALTH)
+        if max and max > 0 then
+            self.maxEnemyHealth = max
+            self.currentEnemyHealth = current
+
+            -- If group wipes
+            if current < self.lowestEnemyHealth or self.lowestEnemyHealth == 0 then
+                self.lowestEnemyHealth = current
             end
         end
     end
 end
 
 --=============================================================================
--- COMBAT UPDATES
+-- RESET AT START OF FIGHT
 --=============================================================================
 function DPSContributionTracker:OnCombatStateChanged(inCombat)
     if inCombat then
@@ -68,6 +66,7 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
         self.playerTotalDamage = 0
         self.combatStartTime = GetGameTimeMilliseconds()
         self.hasReported = false
+        self.lowestEnemyHealth = 0
         self:GetEnemyHealth()
         d("Combat Started")
     else
@@ -78,7 +77,9 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
     end
 end
 
--- track player damage
+--=============================================================================
+-- TRACK PLAYER DAMAGE
+--=============================================================================
 function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
                                               abilityActionSlotType,
                                               sourceName, sourceType, targetName, targetType,
@@ -104,8 +105,18 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
     end
 end
 
--- Update enemy health and print DPS info
+--=============================================================================
+-- GENERATE REPORT
+--=============================================================================
 function DPSContributionTracker:UpdateStatus()
+    if self.inCombat and self.bossName ~= '' then
+        local currentTime = GetGameTimeMilliseconds()
+        if currentTime - self.lastHealthCheck >= self.healthCheckInterval then
+            self:GetEnemyHealth()
+            self.lastHealthCheck = currentTime
+        end
+    end
+
     -- Get user input
     local supportSets = self.savedVars.supportSetReduction or 0
     local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
@@ -114,36 +125,68 @@ function DPSContributionTracker:UpdateStatus()
         adjustedGroupDpsSize = 1
     end
 
+    -- Calculate at end of fight
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
-        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / adjustedGroupDpsSize
+        local actualBossDamage = self.maxEnemyHealth - self.lowestEnemyHealth
+        local bossDamagePercent = (actualBossDamage / self.maxEnemyHealth) * 100
+
+        if actualBossDamage <= 0 then
+            actualBossDamage = 1
+        end
+
+        local expectedDPS = actualBossDamage / self.timeElapsed / adjustedGroupDpsSize
         local playerDPS = self.playerDamage / self.timeElapsed
-        local playerContribution = (self.playerDamage / self.maxEnemyHealth) * 100
-        local expectedDMG = self.maxEnemyHealth / self.savedVars.groupDpsSize
+        local groupDPS = actualBossDamage / self.timeElapsed
+        local playerContribution = (self.playerDamage / actualBossDamage) * 100
+        local expectedDMG = actualBossDamage / self.savedVars.groupDpsSize
         local expectedContribution = (1 / self.savedVars.groupDpsSize) * 100
 
+        -- Display in GUI
+        local outcome = self.lowestEnemyHealth == 0 and "KILL" or
+            string.format("WIPE (%.1f%% remaining)",
+                (self.lowestEnemyHealth / self.maxEnemyHealth) * 100
+            )
 
-        d("group dps size" .. tostring(adjustedGroupDpsSize))
-        d(string.format("Enemy HP: %d", self.maxEnemyHealth))
-        d(string.format(
-            "Damage Done: %.0f | Your DPS: %.1f | Expected Damage Done: %.0f | Expected DPS: %.1f | Your Contribution: %.1f%% | Expected playerContribution: %.1f%%",
-            self
-            .playerDamage, playerDPS, expectedDMG, expectedDPS,
-            playerContribution, expectedContribution))
+        local bossText = string.format("%s - %s - HP: %s - Fight Time: %.1fs",
+            self.bossName,
+            outcome,
+            string.format("%d", self.maxEnemyHealth),
+            self.timeElapsed
+        )
 
-        -- Update both labels
-        local line1Text = string.format(
-            "Your Damage Done: %.0f | Expected Damage Done: %.0f",
-            self.playerDamage, expectedDMG, playerDPS, expectedDPS)
-        -- Update both labels
-        local line2Text = string.format(
-            "Your DPS: %.1f | Expected DPS: %.1f",
-            playerDPS, expectedDPS)
-        local line3Text = string.format("Your Contribution: %.1f%% | Expected Contribution: %.1f%%",
-            playerContribution, expectedContribution)
+        local groupText = string.format("Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
+            self.savedVars.groupDpsSize,
+            supportSets,
+            supportSets * 20,
+            groupDPS
+        )
 
-        DPSContributionTracker_Label1:SetText(line1Text)
-        DPSContributionTracker_Label2:SetText(line2Text)
-        DPSContributionTracker_Label3:SetText(line3Text)
+        local damageText = string.format(
+            "Your Damage Done: %.0f - Expected Damage Done: %.0f",
+            self.playerDamage,
+            expectedDMG
+        )
+
+        local dpsText = string.format("Your DPS: %.1f - Expected DPS: %.1f",
+            playerDPS,
+            expectedDPS
+        )
+
+        local contributionText = string.format("Your Contribution: %.1f%% - Expected Contribution: %.1f%%",
+            playerContribution,
+            expectedContribution
+        )
+
+        line1_BossInfo:SetText(bossText)
+        line2_GroupSetup:SetText(groupText)
+        line3_DamageComparison:SetText(damageText)
+        line4_DPSComparison:SetText(dpsText)
+        line5_Contribution:SetText(contributionText)
+
+
+        -- Debug info
+        d(string.format("Debug: MaxHP=%d, LowestHP=%d, Damage to boss=%d",
+            self.maxEnemyHealth, self.lowestEnemyHealth, actualBossDamage))
         self.hasReported = true
     end
 end
@@ -188,18 +231,18 @@ end
 -- Get all labels
 function DPSContributionTracker:GetLabels()
     return {
-        _G["DPSContributionTracker_Label1"],
-        _G["DPSContributionTracker_Label2"],
-        _G["DPSContributionTracker_Label3"],
-        _G["DPSContributionTracker_Label4"],
-        _G["DPSContributionTracker_Label5"]
+        _G["line1_BossInfo"],
+        _G["line2_GroupSetup"],
+        _G["line3_DamageComparison"],
+        _G["line4_DPSComparison"],
+        _G["line5_Contribution"]
     }
 end
 
 function DPSContributionTracker:UpdateLabelSettings()
     local fontSize = self.savedVars.fontSize or 48
-    local posX = self.savedVars.labelPosX or 500
-    local posY = self.savedVars.labelPosY or 300
+    local posX = self.savedVars.labelPosX or 100
+    local posY = self.savedVars.labelPosY or 100
     local labels = self:GetLabels()
 
     for i, label in ipairs(labels) do
@@ -214,7 +257,9 @@ function DPSContributionTracker:UpdateLabelSettings()
     end
 end
 
---Settings Menu
+--=============================================================================
+-- SETTINGS MENU
+--=============================================================================
 function DPSContributionTracker:CreateSettingsMenu()
     local LAM = LibAddonMenu2
     local panelName = "DPSContributionTrackerSettings"
