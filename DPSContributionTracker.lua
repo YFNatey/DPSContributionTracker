@@ -3,7 +3,8 @@ local defaults = {
     supportSetReduction = 0.0,
     fontSize = 30,
     labelPosX = 100,
-    labelPosY = 100
+    labelPosY = 100,
+    showNotifications = false
 }
 
 DPSContributionTracker = {}
@@ -23,15 +24,22 @@ DPSContributionTracker.bossName = ''
 DPSContributionTracker.lastHealthCheck = 0
 DPSContributionTracker.healthCheckInterval = 2000
 
+--=============================================================================
+-- DEBUG HELPER
+--=============================================================================
+function DPSContributionTracker:DebugPrint(message)
+    if self.savedVars and self.savedVars.showNotifications then
+        d(message)
+    end
+end
 
 --=============================================================================
 -- GET ENEMY HEALTH
 --=============================================================================
 function DPSContributionTracker:GetEnemyHealth()
-    d("running GetEnemeyHealth()")
+    self:DebugPrint("running GetEnemeyHealth()")
     local unitTag
 
-    -- For Console. reticleover is disabled on console
     if IsConsoleUI() then
         unitTag = "boss1"
         if not self.bossName or self.bossName == '' then
@@ -39,10 +47,7 @@ function DPSContributionTracker:GetEnemyHealth()
         end
     end
 
-
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        -- For console
-
         local current, max, effectiveMax = GetUnitPower(unitTag, COMBAT_MECHANIC_FLAGS_HEALTH)
         if max and max > 0 then
             self.maxEnemyHealth = max
@@ -68,12 +73,12 @@ function DPSContributionTracker:OnCombatStateChanged(inCombat)
         self.hasReported = false
         self.lowestEnemyHealth = 0
         self:GetEnemyHealth()
-        d("Combat Started")
+        self:DebugPrint("Combat Started")
     else
         self.inCombat = false
         self.combatEndTime = GetGameTimeMilliseconds()
         self.timeElapsed = (self.combatEndTime - self.combatStartTime) / 1000
-        d(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
+        self:DebugPrint(string.format("Combat Ended. Time: %.1f seconds", self.timeElapsed))
     end
 end
 
@@ -101,7 +106,7 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
     if DAMAGE_RESULTS[result] and sourceType == 1 and hitValue > 0 and formattedTargetName == self.bossName then
         self.playerDamage = self.playerDamage + hitValue
 
-        d(string.format("Player hit for %d", hitValue))
+        self:DebugPrint(string.format("Player hit for %d", hitValue))
     end
 end
 
@@ -154,7 +159,8 @@ function DPSContributionTracker:UpdateStatus()
             self.timeElapsed
         )
 
-        local groupText = string.format("Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
+        local groupText = string.format(
+            "Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
             self.savedVars.groupDpsSize,
             supportSets,
             supportSets * 20,
@@ -185,7 +191,8 @@ function DPSContributionTracker:UpdateStatus()
 
 
         -- Debug info
-        d(string.format("Debug: MaxHP=%d, LowestHP=%d, Damage to boss=%d",
+        self:DebugPrint(string.format(
+            "Debug: MaxHP=%d, LowestHP=%d, Damage to boss=%d",
             self.maxEnemyHealth, self.lowestEnemyHealth, actualBossDamage))
         self.hasReported = true
     end
@@ -200,13 +207,12 @@ local function Initialize()
         1,
         nil,
         {
-            showNotifications = true,
-            dpsHistory = {},
             groupDpsSize = 1,
             supportSetReduction = 0.0,
             fontSize = 30,
             labelPosX = 100,
-            labelPosY = 100
+            labelPosY = 100,
+            showNotifications = false
         }
     )
     local labels = DPSContributionTracker:GetLabels()
@@ -252,7 +258,7 @@ function DPSContributionTracker:UpdateLabelSettings()
             local yOffset = posY + (i - 1) * 30
             label:SetAnchor(TOPLEFT, GuiRoot, TOPLEFT, posX, yOffset)
         else
-            d("Warning: Label " .. i .. " not found")
+            self:DebugPrint("Warning: Label " .. i .. " not found")
         end
     end
 end
@@ -275,24 +281,17 @@ function DPSContributionTracker:CreateSettingsMenu()
     }
 
     local optionsTable = {
+
         [1] = {
-            type = "checkbox",
-            name = "Enable Notifications",
-            tooltip = "Show messages in chat when combat ends.",
-            getFunc = function() return self.savedVars.showNotifications end,
-            setFunc = function(value) self.savedVars.showNotifications = value end,
-            default = true,
-        },
-        [2] = {
             type = "button",
-            name = "Reset Saved Data",
+            name = "Reset Saved Data. (Not functional)",
             tooltip = "Resets the stored DPS history.",
             func = function()
                 self.savedVars.dpsHistory = {}
-                d("DPS history reset")
+                self:DebugPrint("DPS history reset")
             end,
         },
-        [3] = {
+        [2] = {
             type = "slider",
             name = "Nmmber of DPS Players in group",
             tooltip = "Adjust the number of full damage DPS in group. Affects the expeccted DPS",
@@ -303,7 +302,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.groupDpsSize = value end,
             default = defaults.groupDpsSize,
         },
-        [4] = {
+        [3] = {
             type = "slider",
             name = "Nmmber of DPS support sets in group",
             tooltip = "Each support set is estimated to be a 20% damage loss",
@@ -314,7 +313,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.supportSetReduction = value end,
             default = defaults.supportSetReduction,
         },
-        [5] = {
+        [4] = {
             type = "slider",
             name = "Font Size",
             tooltip = "Adjust label font size.",
@@ -328,7 +327,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 24,
         },
-        [6] = {
+        [5] = {
             type = "slider",
             name = "Label X Position",
             min = 0,
@@ -341,7 +340,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 100,
         },
-        [7] = {
+        [6] = {
             type = "slider",
             name = "Label Y Position",
             min = 0,
@@ -353,6 +352,14 @@ function DPSContributionTracker:CreateSettingsMenu()
                 self:UpdateLabelSettings()
             end,
             default = 100,
+        },
+        [7] = {
+            type = "checkbox",
+            name = "Enable Debug Notifications",
+            tooltip = "For testing",
+            getFunc = function() return self.savedVars.showNotifications end,
+            setFunc = function(value) self.savedVars.showNotifications = value end,
+            default = defaults.showNotifications,
         },
     }
 
@@ -371,7 +378,6 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
 
 local function OnAddOnLoaded(event, addonName)
     if addonName == ADDON_NAME then
-        d("AddOn Loaded: " .. addonName)
         EVENT_MANAGER:UnregisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
         Initialize()
     end
