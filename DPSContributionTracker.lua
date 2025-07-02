@@ -1,15 +1,11 @@
 local defaults = {
-    groupDpsSize = 1
+    groupDpsSize = 1,
+    supportSetReduction = 0.0
 }
-
 
 DPSContributionTracker = {}
 local ADDON_NAME = "DPSContributionTracker"
 
--- Debug print helper
-local function debug(msg)
-    d("[DPS Tracker] " .. tostring(msg))
-end
 
 DPSContributionTracker.savedVars = nil
 DPSContributionTracker.combatStartTime = 0
@@ -20,23 +16,25 @@ DPSContributionTracker.currentEnemyHealth = 0
 DPSContributionTracker.maxEnemyHealth = 0
 DPSContributionTracker.inCombat = false
 DPSContributionTracker.hasReported = false
+DPSContributionTracker.bossName = ''
 
 -- get enemy health
 function DPSContributionTracker:GetEnemyHealth()
     d("running GetEnemeyHealth()")
     local unitTag
+
+    -- For Console. reticleover is disabled on console
     if IsConsoleUI() then
         unitTag = "boss1"
+        self.bossName = GetUnitName(unitTag)
     else
         unitTag = "reticleover"
     end
-    d("unitTag = " .. tostring(unitTag))
-    d("Exists: " .. tostring(DoesUnitExist(unitTag)))
-    d("Attackable: " .. tostring(IsUnitAttackable(unitTag)))
+
     if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
+        -- For PC
         if not IsConsoleUI() then
             local maxHP = GetUnitPower(unitTag, POWERTYPE_HEALTH, POWERVAR_MAX)
-
             if maxHP and maxHP > 0 then
                 self.maxEnemyHealth = maxHP
                 d("PC: Detected enemy max health: " .. tostring(maxHP))
@@ -60,12 +58,12 @@ end
 -- Get combat state
 function DPSContributionTracker:OnCombatStateChanged(inCombat)
     if inCombat then
-        self:GetEnemyHealth()
         self.inCombat = true
         self.playerDamage = 0
         self.playerTotalDamage = 0
         self.combatStartTime = GetGameTimeMilliseconds()
         self.hasReported = false
+        self:GetEnemyHealth()
         d("Combat Started")
     else
         self.inCombat = false
@@ -81,9 +79,12 @@ function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilit
                                               sourceName, sourceType, targetName, targetType,
                                               hitValue, powerType, damageType, combatMechanic,
                                               sourceUnitId, targetUnitId, abilityId, overflow)
-    if sourceType == COMBAT_UNIT_TYPE_PLAYER and hitValue > 0 then
+    -- Reformat targetName to remove the gender suffix and match the unitTag string
+    local formattedTargetName = targetName:match("([^%^]+)")
+
+    -- Sum the player damage to the boss
+    if sourceType == 1 and hitValue > 0 and formattedTargetName == self.bossName and result == 1 then
         self.playerDamage = self.playerDamage + hitValue
-        self:GetEnemyHealth()
 
         d(string.format("Player hit for %d", hitValue))
     end
@@ -91,13 +92,22 @@ end
 
 -- Update enemy health and print DPS info
 function DPSContributionTracker:UpdateStatus()
+    local supportSets = self.savedVars.supportSetReduction or 0
+    local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
+
+    -- Make sure adjustedGroupDpsSize never goes below some minimum (like 1)
+    if adjustedGroupDpsSize < 1 then
+        adjustedGroupDpsSize = 1
+    end
+
+
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
-        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / self.savedVars.groupDpsSize
+        local expectedDPS = self.maxEnemyHealth / self.timeElapsed / adjustedGroupDpsSize
         local actualDPS = self.playerDamage / self.timeElapsed
         local Contribution = (self.playerDamage / self.maxEnemyHealth) * 100
         local expectedDMG = self.maxEnemyHealth / self.savedVars.groupDpsSize
         local baselineContribution = (1 / self.savedVars.groupDpsSize) * 100
-        d("group dps size" .. tostring(self.savedVars.groupDpsSize))
+        d("group dps size" .. tostring(adjustedGroupDpsSize))
         d(string.format("Enemy HP: %d", self.maxEnemyHealth))
         d(string.format(
             "Damage Done: %.0f | Your DPS: %.1f | Expected Damage Done: %.0f | Expected DPS: %.1f | Contribution: %.1f%% | Baseline Contribution: %.1f%%",
@@ -117,7 +127,8 @@ local function Initialize()
         {
             showNotifications = true,
             dpsHistory = {},
-            groupDpsSize = 1
+            groupDpsSize = 1,
+            supportSetReduction = 0.0
         }
     )
 
@@ -170,6 +181,17 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.groupDpsSize = value end,
             default = defaults.groupDpsSize,
         },
+        [4] = {
+            type = "slider",
+            name = "Nmmber of DPS support sets in group",
+            tooltip = "Each support set is estimated to by a 20% damage loss",
+            min = 0,
+            max = 4,
+            step = 1,
+            getFunc = function() return self.savedVars.supportSetReduction end,
+            setFunc = function(value) self.savedVars.supportSetReduction = value end,
+            default = defaults.supportSetReduction,
+        }
     }
 
     LAM:RegisterAddonPanel(panelName, panelData)
