@@ -1,6 +1,9 @@
 local defaults = {
     groupDpsSize = 1,
-    supportSetReduction = 0.0
+    supportSetReduction = 0.0,
+    fontSize = 30,
+    labelPosX = 100,
+    labelPosY = 100
 }
 
 DPSContributionTracker = {}
@@ -50,8 +53,6 @@ function DPSContributionTracker:GetEnemyHealth()
                 d("Console: Failed to detect max enemy HP")
             end
         end
-    else
-        d("Unit does not exist or is not attackable")
     end
 end
 
@@ -111,19 +112,34 @@ function DPSContributionTracker:UpdateStatus()
 
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
         local expectedDPS = self.maxEnemyHealth / self.timeElapsed / adjustedGroupDpsSize
-        local actualDPS = self.playerDamage / self.timeElapsed
-        local Contribution = (self.playerDamage / self.maxEnemyHealth) * 100
+        local playerDPS = self.playerDamage / self.timeElapsed
+        local playerContribution = (self.playerDamage / self.maxEnemyHealth) * 100
         local expectedDMG = self.maxEnemyHealth / self.savedVars.groupDpsSize
-        local baselineContribution = (1 / self.savedVars.groupDpsSize) * 100
+        local expectedContribution = (1 / self.savedVars.groupDpsSize) * 100
+
 
         d("group dps size" .. tostring(adjustedGroupDpsSize))
         d(string.format("Enemy HP: %d", self.maxEnemyHealth))
         d(string.format(
-            "Damage Done: %.0f | Your DPS: %.1f | Expected Damage Done: %.0f | Expected DPS: %.1f | Contribution: %.1f%% | Baseline Contribution: %.1f%%",
+            "Damage Done: %.0f | Your DPS: %.1f | Expected Damage Done: %.0f | Expected DPS: %.1f | Your Contribution: %.1f%% | Expected playerContribution: %.1f%%",
             self
-            .playerDamage, actualDPS, expectedDMG, expectedDPS,
-            Contribution, baselineContribution))
+            .playerDamage, playerDPS, expectedDMG, expectedDPS,
+            playerContribution, expectedContribution))
 
+        -- Update both labels
+        local line1Text = string.format(
+            "Your Damage Done: %.0f | Expected Damage Done: %.0f",
+            self.playerDamage, expectedDMG, playerDPS, expectedDPS)
+        -- Update both labels
+        local line2Text = string.format(
+            "Your DPS: %.1f | Expected DPS: %.1f",
+            playerDPS, expectedDPS)
+        local line3Text = string.format("Your Contribution: %.1f%% | Expected Contribution: %.1f%%",
+            playerContribution, expectedContribution)
+
+        DPSContributionTracker_Label1:SetText(line1Text)
+        DPSContributionTracker_Label2:SetText(line2Text)
+        DPSContributionTracker_Label3:SetText(line3Text)
         self.hasReported = true
     end
 end
@@ -138,13 +154,30 @@ local function Initialize()
             showNotifications = true,
             dpsHistory = {},
             groupDpsSize = 1,
-            supportSetReduction = 0.0
+            supportSetReduction = 0.0,
+            fontSize = 30,
+            labelPosX = 100,
+            labelPosY = 100
         }
     )
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
         function(...) DPSContributionTracker:OnCombatEvent(...) end)
+
     DPSContributionTracker:CreateSettingsMenu()
+end
+
+
+-- Adjust UI
+function DPSContributionTracker:UpdateLabelSettings()
+    -- Defaults for initial debugging, will change later
+    local fontSize = self.savedVars.fontSize or 48
+    local posX = self.savedVars.labelPosX or 500
+    local posY = self.savedVars.labelPosY or 300
+
+    DPSContributionTracker_Label:SetFont(string.format("$(BOLD_FONT)|%d", fontSize))
+    DPSContributionTracker_Label:ClearAnchors()
+    DPSContributionTracker_Label:SetAnchor(CENTER, GuiRoot, CENTER, 0, 0)
 end
 
 --Settings Menu
@@ -154,7 +187,7 @@ function DPSContributionTracker:CreateSettingsMenu()
 
     local panelData = {
         type = "panel",
-        name = "DPS Contribution Tracker",
+        name = "DPS playerContribution Tracker",
         displayName = "DPSContributionTracker",
         author = "YFNatey",
         version = "1.0",
@@ -201,7 +234,47 @@ function DPSContributionTracker:CreateSettingsMenu()
             getFunc = function() return self.savedVars.supportSetReduction end,
             setFunc = function(value) self.savedVars.supportSetReduction = value end,
             default = defaults.supportSetReduction,
-        }
+        },
+        [5] = {
+            type = "slider",
+            name = "Font Size",
+            tooltip = "Adjust label font size.",
+            min = 10,
+            max = 48,
+            step = 1,
+            getFunc = function() return self.savedVars.fontSize end,
+            setFunc = function(value)
+                self.savedVars.fontSize = value
+                self:UpdateLabelSettings()
+            end,
+            default = 24,
+        },
+        [6] = {
+            type = "slider",
+            name = "Label X Position",
+            min = 0,
+            max = 1920,
+            step = 10,
+            getFunc = function() return self.savedVars.labelPosX end,
+            setFunc = function(value)
+                self.savedVars.labelPosX = value
+                self:UpdateLabelSettings()
+            end,
+            default = 100,
+        },
+        [7] = {
+            type = "slider",
+            name = "Label Y Position",
+            min = 0,
+            max = 1080,
+            step = 10,
+            getFunc = function() return self.savedVars.labelPosY end,
+            setFunc = function(value)
+                self.savedVars.labelPosY = value
+                self:UpdateLabelSettings()
+            end,
+            default = 100,
+        },
     }
 
     LAM:RegisterAddonPanel(panelName, panelData)

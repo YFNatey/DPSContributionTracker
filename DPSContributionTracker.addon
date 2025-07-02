@@ -6,6 +6,7 @@
 ## ConsoleDependsOn: LibAddonMenu-2.0
 ## ConsoleDependsOn: LibHarvensAddonSettings
 
+DPSContributionTracker.xml
 DPSContributionTracker.lua
 
 
