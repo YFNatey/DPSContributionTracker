@@ -26,6 +26,7 @@ BossFightContribution.bossName = ''
 BossFightContribution.lastHealthCheck = 0
 BossFightContribution.healthCheckInterval = 250
 BossFightContribution.testLabelsVisible = false
+BossFightContribution.discoveredBosses = {}
 
 --=============================================================================
 -- DEBUG HELPER
@@ -42,26 +43,59 @@ end
 function BossFightContribution:GetEnemyHealth()
     self:DebugPrint("running GetEnemeyHealth()")
     local unitTag
+    -- Check unitTag for matching boss number
+    local bossUnitTags = { "boss1", "boss2", "boss3", "boss4", "boss5", "boss6" }
+    local totalMaxHealth = 0
+    local totalCurrentHealth = 0
+    local lowestCurrentHealth = math.huge
 
+    -- Get the current boss
     if IsConsoleUI() then
-        unitTag = "boss1"
-        if not self.bossName or self.bossName == '' then
-            self.bossName = GetUnitName(unitTag)
-        end
-    end
-
-    if DoesUnitExist(unitTag) and IsUnitAttackable(unitTag) then
-        local current, max, effectiveMax = GetUnitPower(unitTag, COMBAT_MECHANIC_FLAGS_HEALTH)
-        if max and max > 0 then
-            self.maxEnemyHealth = max
-            self.currentEnemyHealth = current
-
-            -- If group wipes
-            if current < self.lowestEnemyHealth or self.lowestEnemyHealth == 0 then
-                self.lowestEnemyHealth = current
+        for _, tag in ipairs(bossUnitTags) do
+            if DoesUnitExist(tag) and IsUnitAttackable(tag) then
+                local bossName = GetUnitName(tag)
+                -- add bossName to table
+                if bossName and bossName ~= '' then
+                    if not self.discoveredBosses[bossName] then
+                        self.discoveredBosses[bossName] = {
+                            unitTag = tag,
+                            discovered = true
+                        }
+                        self:DebugPrint("Boss detected: " .. (bossName or "Unknown"))
+                    end
+                end
             end
         end
     end
+    -- After you've discovered bosses, iterate through them to get health
+    for bossName, bossData in pairs(self.discoveredBosses) do
+        local tag = bossData.unitTag
+        if tag and DoesUnitExist(tag) and IsUnitAttackable(tag) then
+            local current, max, effectiveMax = GetUnitPower(tag, COMBAT_MECHANIC_FLAGS_HEALTH)
+            if max and max > 0 then
+                --update health data
+                bossData.maxHealth = max
+                bossData.currentHealth = current
+
+                totalMaxHealth = totalMaxHealth + max
+                totalCurrentHealth = totalCurrentHealth + current
+                lowestCurrentHealth = math.min(lowestCurrentHealth, current)
+                self:DebugPrint(string.format("%s: %d/%d HP", bossName, current, max))
+            end
+        end
+    end
+    self.maxEnemyHealth = totalMaxHealth
+    self.currentEnemyHealth = totalCurrentHealth
+
+    -- UPDATE lowestEnemyHealth properly
+    if lowestCurrentHealth ~= math.huge then
+        if self.lowestEnemyHealth == 0 or lowestCurrentHealth < self.lowestEnemyHealth then
+            self.lowestEnemyHealth = lowestCurrentHealth
+        end
+    end
+
+    self:DebugPrint(string.format("Total health: %d/%d, Lowest: %d",
+        totalCurrentHealth, totalMaxHealth, self.lowestEnemyHealth))
 end
 
 --=============================================================================
@@ -75,6 +109,8 @@ function BossFightContribution:OnCombatStateChanged(inCombat)
         self.combatStartTime = GetGameTimeMilliseconds()
         self.hasReported = false
         self.lowestEnemyHealth = 0
+        self.bossName = ''
+        self.discoveredBosses = {}
         self:GetEnemyHealth()
         self:DebugPrint("Combat Started")
     else
@@ -106,10 +142,15 @@ function BossFightContribution:OnCombatEvent(eventCode, result, isError, ability
     local formattedTargetName = targetName:match("([^%^]+)")
 
     -- Sum the player damage to the boss
-    if DAMAGE_RESULTS[result] and sourceType == 1 and hitValue > 0 and formattedTargetName == self.bossName then
-        self.playerDamage = self.playerDamage + hitValue
+    if DAMAGE_RESULTS[result] and sourceType == 1 and hitValue > 0 then
+        for bossName, bossData in pairs(self.discoveredBosses or {}) do
+            if formattedTargetName == bossName then
+                self.playerDamage = self.playerDamage + hitValue
 
-        self:DebugPrint(string.format("Player hit for %d", hitValue))
+                self:DebugPrint(string.format("Player hit for %d", hitValue))
+                break
+            end
+        end
     end
 end
 
@@ -117,7 +158,9 @@ end
 -- UPDATE STATUS
 --=============================================================================
 function BossFightContribution:UpdateStatus()
-    if self.inCombat and self.bossName ~= '' then
+    local allBossNames = {}
+
+    if self.inCombat then
         local currentTime = GetGameTimeMilliseconds()
         if currentTime - self.lastHealthCheck >= self.healthCheckInterval then
             self:GetEnemyHealth()
@@ -127,6 +170,8 @@ function BossFightContribution:UpdateStatus()
 
     -- Calculate at end of fight
     if not self.inCombat and self.timeElapsed > 0 and self.maxEnemyHealth > 0 and not self.hasReported then
+        self:ClearTestLabels()
+
         -- Get user settings
         local supportSets = self.savedVars.supportSetReduction or 0
         local adjustedGroupDpsSize = self.savedVars.groupDpsSize - (supportSets * 0.2)
@@ -134,8 +179,17 @@ function BossFightContribution:UpdateStatus()
             adjustedGroupDpsSize = 1
         end
 
+        local totalMaxHealth = 0
+        local totalCurrentHealth = 0
+
+        for bossName, bossData in pairs(self.discoveredBosses or {}) do
+            totalMaxHealth = totalMaxHealth + (bossData.maxHealth or 0)
+            totalCurrentHealth = totalCurrentHealth + (bossData.currentHealth or 0)
+            table.insert(allBossNames, bossName)
+        end
+
         -- Handle group wipe scenarios
-        local actualBossDamage = self.maxEnemyHealth - self.lowestEnemyHealth
+        local actualBossDamage = totalMaxHealth - totalCurrentHealth
         if actualBossDamage <= 0 then
             actualBossDamage = 1
         end
@@ -146,14 +200,18 @@ function BossFightContribution:UpdateStatus()
         local playerContribution = (self.playerDamage / actualBossDamage) * 100
         local expectedDMG = actualBossDamage / self.savedVars.groupDpsSize
         local expectedContribution = (1 / self.savedVars.groupDpsSize) * 100
+        local contributionRatio = playerContribution / expectedContribution
         local outcome = self.lowestEnemyHealth == 0 and "KILL" or "WIPE"
-
-        -- Format for GUI
         local outcomeDisplay = outcome == "KILL" and "KILL" or
             string.format("WIPE (%.1f%% remaining)", (self.lowestEnemyHealth / self.maxEnemyHealth) * 100)
 
+
+        -- Combine all boss names
+        local combinedBossName = table.concat(allBossNames, " & ")
+
+        -- Format strings for GUI
         local bossText = string.format("%s - %s - HP: %d - Fight Time: %.1fs",
-            self.bossName, outcomeDisplay, self.maxEnemyHealth, self.timeElapsed)
+            combinedBossName, outcomeDisplay, self.maxEnemyHealth, self.timeElapsed)
 
         local groupText = string.format("Group: %d DPS Players - Support Sets: %d (%.0f%%) - Group DPS: %.1f",
             self.savedVars.groupDpsSize, supportSets, supportSets * 20, groupDPS)
@@ -164,8 +222,9 @@ function BossFightContribution:UpdateStatus()
         local dpsText = string.format("Your DPS: %.1f - Expected DPS: %.1f",
             playerDPS, expectedDPS)
 
-        local contributionText = string.format("Your Contribution: %.1f%% - Expected Contribution: %.1f%%",
-            playerContribution, expectedContribution)
+        local contributionText = string.format(
+            "Your Contribution: %.1f%% - Expected Contribution: %.1f%% (%.1fx expected)",
+            playerContribution, expectedContribution, contributionRatio)
 
         -- Create bossData object
         local bossData = {
@@ -176,12 +235,11 @@ function BossFightContribution:UpdateStatus()
             contributionText
         }
 
-        -- Save to table
+        -- Save object to table
         table.insert(self.savedVars.bossHistory, 1, bossData)
 
-        self:DebugPrint(string.format("Debug: MaxHP=%d, LowestHP=%d, Damage=%d",
-            self.maxEnemyHealth, self.lowestEnemyHealth, actualBossDamage))
-
+        -- Display stats
+        self:DisplayFight(self.savedVars.bossHistory[1])
         self:DebugPrint(string.format("Saved boss fight: %s - %s", self.bossName, outcome))
 
         self.hasReported = true
@@ -295,10 +353,10 @@ function BossFightContribution:CreateSettingsMenu()
     local panelName = "BossContributionSettings"
     local tutorialText = [[How Boss Contribution Works:
 
-• 100% Contribution = Matching your group's average DPS (pulling your weight)
-• Above 100% = Outperforming your group
-• Below 100% = Underperforming compared to your group
-• Off-boss mechanics (like portals), resurrections, adjustments are in development
+• Matching Expected Contribution means matching your group's average DPS (pulling your weight)
+• Above Expected Contribution means outperforming the average DD in your group
+• Below Expected Contribution means underperforming the average DD in your group
+• (WIP) Off-boss mechanics like (portals and resurrections) lower your expected contribution
 
 ]]
 
@@ -317,33 +375,33 @@ function BossFightContribution:CreateSettingsMenu()
             type = "button",
             name = "Toggle UI",
             tooltip = tutorialText,
-
             func = function()
                 local labels = self:GetLabels()
                 local isCurrentlyHidden = labels[1] and labels[1]:IsHidden()
 
                 if isCurrentlyHidden then
-                    -- Unhide
+                    -- Show and refresh content
                     for i, label in ipairs(labels) do
                         if label then
                             label:SetHidden(false)
                         end
                     end
-
-                    -- Display most recent log
-                    if self.savedVars.bossHistory and #self.savedVars.bossHistory > 0 then
-                        self:DisplayFight(self.savedVars.bossHistory[1])
-                    else
-                        local testLabel = self:ShowTestLabels()
-                        self:DisplayFight(testLabel)
-                    end
                 else
+                    -- Hide
                     for i, label in ipairs(labels) do
                         if label then
                             label:SetHidden(true)
                         end
                     end
-                    self:ClearTestLabels()
+                    return
+                end
+
+                -- Always refresh content when showing
+                if self.savedVars.bossHistory and #self.savedVars.bossHistory > 0 then
+                    self:DisplayFight(self.savedVars.bossHistory[1])
+                else
+                    local testData = self:ShowTestLabels()
+                    self:DisplayFight(testData)
                 end
             end
         },

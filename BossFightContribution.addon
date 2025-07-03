@@ -4,6 +4,7 @@
 ## APIVersion: 101046
 ## SavedVariables: BossFightContribution_SavedVars
 ## ConsoleDependsOn: LibAddonMenu-2.0
+## ConsoleDependsOn: LibHarvensAddonSettings
 
 BossFightContribution.xml
 BossFightContribution.lua
