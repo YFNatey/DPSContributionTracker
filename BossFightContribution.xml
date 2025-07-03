@@ -10,7 +10,7 @@
                     color="FFFFFF"
                     text=""
                     hidden="false"
-                    drawLevel="3">
+                    drawLevel="6">
                     <Dimensions x="900" y="40" />
                 </Label>
                 <Label
@@ -19,7 +19,7 @@
                     color="FFFFFF"
                     text=""
                     hidden="false"
-                    drawLevel="3">
+                    drawLevel="10">
 
                     <Dimensions x="900" y="30" />
                 </Label>
@@ -29,7 +29,7 @@
                     color="FFFFFF"
                     text=""
                     hidden="false"
-                    drawLevel="3">
+                    drawLevel="10">
                 
                     <Dimensions x="900" y="40" />
                 </Label>
@@ -39,7 +39,7 @@
                     color="FFFFFF"
                     text=""
                     hidden="false"
-                    drawLevel="3">
+                    drawLevel="10">
             
                     <Dimensions x="900" y="40" />
                 </Label>
@@ -49,7 +49,7 @@
                     color="FFFFFF"
                     text=""
                     hidden="false"
-                    drawLevel="3">
+                    drawLevel="10">
                    
                     <Dimensions x="900" y="40" />
                 </Label>

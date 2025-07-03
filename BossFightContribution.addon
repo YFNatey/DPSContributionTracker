@@ -1,13 +1,12 @@
-## Title: DPSContributionTracker
+## Title: Boss Fight Contribution
 ## Author: YFNatey
 ## Version: 1.0
 ## APIVersion: 101046
-## SavedVariables: DPSContributionTracker_SavedVars
+## SavedVariables: BossFightContribution_SavedVars
 ## ConsoleDependsOn: LibAddonMenu-2.0
-## ConsoleDependsOn: LibHarvensAddonSettings
 
-DPSContributionTracker.xml
-DPSContributionTracker.lua
+BossFightContribution.xml
+BossFightContribution.lua
 
 
 Libs/LibAddonMenu-2.0/LibAddonMenu-2.0.lua

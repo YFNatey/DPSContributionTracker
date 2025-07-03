@@ -1,35 +1,36 @@
 local defaults = {
     groupDpsSize = 1,
     supportSetReduction = 0.0,
-    fontSize = 30,
-    labelPosX = 100,
-    labelPosY = 100,
+    fontSize = 28,
+    labelPosX = 560,
+    labelPosY = 60,
     showNotifications = false,
     bossHistory = {},
     fightCount = 0
 }
 
-DPSContributionTracker = {}
-local ADDON_NAME = "DPSContributionTracker"
+BossFightContribution = {}
+local ADDON_NAME = "BossFightContribution"
 
-DPSContributionTracker.savedVars = nil
-DPSContributionTracker.combatStartTime = 0
-DPSContributionTracker.combatEndTime = 0
-DPSContributionTracker.timeElapsed = 0
-DPSContributionTracker.playerDamage = 0
-DPSContributionTracker.currentEnemyHealth = 0
-DPSContributionTracker.maxEnemyHealth = 0
-DPSContributionTracker.lowestEnemyHealth = 0
-DPSContributionTracker.inCombat = false
-DPSContributionTracker.hasReported = false
-DPSContributionTracker.bossName = ''
-DPSContributionTracker.lastHealthCheck = 0
-DPSContributionTracker.healthCheckInterval = 2000
+BossFightContribution.savedVars = nil
+BossFightContribution.combatStartTime = 0
+BossFightContribution.combatEndTime = 0
+BossFightContribution.timeElapsed = 0
+BossFightContribution.playerDamage = 0
+BossFightContribution.currentEnemyHealth = 0
+BossFightContribution.maxEnemyHealth = 0
+BossFightContribution.lowestEnemyHealth = 0
+BossFightContribution.inCombat = false
+BossFightContribution.hasReported = false
+BossFightContribution.bossName = ''
+BossFightContribution.lastHealthCheck = 0
+BossFightContribution.healthCheckInterval = 250
+BossFightContribution.testLabelsVisible = false
 
 --=============================================================================
 -- DEBUG HELPER
 --=============================================================================
-function DPSContributionTracker:DebugPrint(message)
+function BossFightContribution:DebugPrint(message)
     if self.savedVars and self.savedVars.showNotifications then
         d(message)
     end
@@ -38,7 +39,7 @@ end
 --=============================================================================
 -- GET ENEMY HEALTH
 --=============================================================================
-function DPSContributionTracker:GetEnemyHealth()
+function BossFightContribution:GetEnemyHealth()
     self:DebugPrint("running GetEnemeyHealth()")
     local unitTag
 
@@ -64,9 +65,9 @@ function DPSContributionTracker:GetEnemyHealth()
 end
 
 --=============================================================================
--- RESET AT START OF FIGHT
+-- RESET VARIABLES
 --=============================================================================
-function DPSContributionTracker:OnCombatStateChanged(inCombat)
+function BossFightContribution:OnCombatStateChanged(inCombat)
     if inCombat then
         self.inCombat = true
         self.playerDamage = 0
@@ -87,11 +88,11 @@ end
 --=============================================================================
 -- TRACK PLAYER DAMAGE
 --=============================================================================
-function DPSContributionTracker:OnCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
-                                              abilityActionSlotType,
-                                              sourceName, sourceType, targetName, targetType,
-                                              hitValue, powerType, damageType, combatMechanic,
-                                              sourceUnitId, targetUnitId, abilityId, overflow)
+function BossFightContribution:OnCombatEvent(eventCode, result, isError, abilityName, abilityGraphic,
+                                             abilityActionSlotType,
+                                             sourceName, sourceType, targetName, targetType,
+                                             hitValue, powerType, damageType, combatMechanic,
+                                             sourceUnitId, targetUnitId, abilityId, overflow)
     -- table of acceptable damage types
     local DAMAGE_RESULTS = {
         [ACTION_RESULT_DAMAGE] = true,
@@ -115,7 +116,7 @@ end
 --=============================================================================
 -- UPDATE STATUS
 --=============================================================================
-function DPSContributionTracker:UpdateStatus()
+function BossFightContribution:UpdateStatus()
     if self.inCombat and self.bossName ~= '' then
         local currentTime = GetGameTimeMilliseconds()
         if currentTime - self.lastHealthCheck >= self.healthCheckInterval then
@@ -166,13 +167,6 @@ function DPSContributionTracker:UpdateStatus()
         local contributionText = string.format("Your Contribution: %.1f%% - Expected Contribution: %.1f%%",
             playerContribution, expectedContribution)
 
-        -- Update GUI
-        line1_BossInfo:SetText(bossText)
-        line2_GroupSetup:SetText(groupText)
-        line3_DamageComparison:SetText(damageText)
-        line4_DPSComparison:SetText(dpsText)
-        line5_Contribution:SetText(contributionText)
-
         -- Create bossData object
         local bossData = {
             bossText,
@@ -185,7 +179,6 @@ function DPSContributionTracker:UpdateStatus()
         -- Save to table
         table.insert(self.savedVars.bossHistory, 1, bossData)
 
-        -- Debug output
         self:DebugPrint(string.format("Debug: MaxHP=%d, LowestHP=%d, Damage=%d",
             self.maxEnemyHealth, self.lowestEnemyHealth, actualBossDamage))
 
@@ -198,7 +191,7 @@ end
 --=============================================================================
 -- DISPLAY LOG
 --=============================================================================
-function DisplayFight(fightData)
+function BossFightContribution:DisplayFight(fightData)
     line1_BossInfo:SetText(fightData[1])
     line2_GroupSetup:SetText(fightData[2])
     line3_DamageComparison:SetText(fightData[3])
@@ -210,34 +203,34 @@ end
 -- INITIALIZE DEFAULTS
 --=============================================================================
 local function Initialize()
-    DPSContributionTracker.savedVars = ZO_SavedVars:NewAccountWide(
+    BossFightContribution.savedVars = ZO_SavedVars:NewAccountWide(
         "DPSContributionTracker_SavedVars",
         1,
         nil,
         {
             groupDpsSize = 1,
             supportSetReduction = 0.0,
-            fontSize = 30,
-            labelPosX = 100,
-            labelPosY = 100,
+            fontSize = 18,
+            labelPosX = 560,
+            labelPosY = 60,
             showNotifications = false,
             bossHistory = {},
             fightCount = 0
         }
     )
-    local labels = DPSContributionTracker:GetLabels()
+    local labels = BossFightContribution:GetLabels()
     for i, label in ipairs(labels) do
         if label then
-            label:SetHidden(false)
+            label:SetHidden(true)
         end
     end
 
-    DPSContributionTracker:UpdateLabelSettings()
+    BossFightContribution:UpdateLabelSettings()
 
     EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_COMBAT_EVENT,
-        function(...) DPSContributionTracker:OnCombatEvent(...) end)
+        function(...) BossFightContribution:OnCombatEvent(...) end)
 
-    DPSContributionTracker:CreateSettingsMenu()
+    BossFightContribution:CreateSettingsMenu()
 end
 
 
@@ -245,7 +238,7 @@ end
 -- UI MANAGEMENT
 --=============================================================================
 -- Get all labels
-function DPSContributionTracker:GetLabels()
+function BossFightContribution:GetLabels()
     return {
         _G["line1_BossInfo"],
         _G["line2_GroupSetup"],
@@ -255,7 +248,7 @@ function DPSContributionTracker:GetLabels()
     }
 end
 
-function DPSContributionTracker:UpdateLabelSettings()
+function BossFightContribution:UpdateLabelSettings()
     local fontSize = self.savedVars.fontSize or 48
     local posX = self.savedVars.labelPosX or 100
     local posY = self.savedVars.labelPosY or 100
@@ -273,17 +266,45 @@ function DPSContributionTracker:UpdateLabelSettings()
     end
 end
 
+-- test labels
+function BossFightContribution:ShowTestLabels()
+    local testData = {
+        "TEST LABEL: Molag Kena - KILL - HP: 850,000 - Fight Time: 45.2s",
+        "Group: 4 DPS Players - Support Sets: 1 (20%) - Group DPS: 18.8k",
+        "Your Damage Done: 242,500 - Expected Damage Done: 212,500",
+        "Your DPS: 5.4k - Expected DPS: 4.7k",
+        "Your Contribution: 114% - Expected Contribution: 100%"
+    }
+    return testData
+end
+
+function BossFightContribution:ClearTestLabels()
+    local labels = self:GetLabels()
+    for i, label in ipairs(labels) do
+        if label then
+            label:SetText("")
+        end
+    end
+end
+
 --=============================================================================
 -- SETTINGS MENU
 --=============================================================================
-function DPSContributionTracker:CreateSettingsMenu()
+function BossFightContribution:CreateSettingsMenu()
     local LAM = LibAddonMenu2
-    local panelName = "DPSContributionTrackerSettings"
+    local panelName = "BossContributionSettings"
+    local tutorialText = [[How Boss Contribution Works:
+
+• 100% Contribution = Matching your group's average DPS (pulling your weight)
+• Above 100% = Outperforming your group
+• Below 100% = Underperforming compared to your group
+• Off-boss mechanics (like portals), resurrections, adjustments are in development
+
+]]
 
     local panelData = {
         type = "panel",
-        name = "DPS playerContribution Tracker",
-        displayName = "DPSContributionTracker",
+        name = "Boss Contribution",
         author = "YFNatey",
         version = "1.0",
         registerForRefresh = true,
@@ -292,40 +313,80 @@ function DPSContributionTracker:CreateSettingsMenu()
 
     local optionsTable = {
 
-
         [1] = {
-            type = "divider",
-            name = "Combat Settings",
+            type = "button",
+            name = "Toggle UI",
+            tooltip = tutorialText,
+
+            func = function()
+                local labels = self:GetLabels()
+                local isCurrentlyHidden = labels[1] and labels[1]:IsHidden()
+
+                if isCurrentlyHidden then
+                    -- Unhide
+                    for i, label in ipairs(labels) do
+                        if label then
+                            label:SetHidden(false)
+                        end
+                    end
+
+                    -- Display most recent log
+                    if self.savedVars.bossHistory and #self.savedVars.bossHistory > 0 then
+                        self:DisplayFight(self.savedVars.bossHistory[1])
+                    else
+                        local testLabel = self:ShowTestLabels()
+                        self:DisplayFight(testLabel)
+                    end
+                else
+                    for i, label in ipairs(labels) do
+                        if label then
+                            label:SetHidden(true)
+                        end
+                    end
+                    self:ClearTestLabels()
+                end
+            end
         },
         [2] = {
             type = "description",
-            text = "Fight Logs (In Development)"
+            text = '|cF5DEB3|In development',
+            tooltip =
+            [[This addon currently only displays the most recent fight, Logging multiple fights is being worked on.
+Enemy detection and DPS calcuations are being tested.
+Currently testing for full damage DD only.
+           ]]
+
         },
+
         [3] = {
-            type = "button",
-            name = "View Boss History",
-            tooltip = "Click to cycle through recent boss fights",
+            type = "divider",
         },
         [4] = {
+            type = "description",
+            text = "Fight Logs (In Development)"
+        },
+        [5] = {
+
+        },
+        [6] = {
             type = "button",
             name = "Clear Boss History",
-            tooltip = "Delete all cached boss fights",
             func = function()
                 self.savedVars.bossHistory = {}
                 d("Boss fight history cleared")
             end,
         },
-        [5] = {
+        [7] = {
             type = "divider",
         },
-        [6] = {
+        [8] = {
             type = "description",
             text = "Group Composition"
         },
-        [7] = {
+        [9] = {
             type = "slider",
-            name = "Nmmber of DPS Players in group",
-            tooltip = "Adjust the number of full damage DPS in group. Affects the expeccted DPS",
+            name = "Number of DPS Players in group",
+            tooltip = "Adjust the number of full damage DPS in group.\n Affects your expected DPS.",
             min = 1,
             max = 10,
             step = 1,
@@ -333,9 +394,9 @@ function DPSContributionTracker:CreateSettingsMenu()
             setFunc = function(value) self.savedVars.groupDpsSize = value end,
             default = defaults.groupDpsSize,
         },
-        [8] = {
+        [10] = {
             type = "slider",
-            name = "Nmmber of DPS support sets in group",
+            name = "Number of DPS support sets in group",
             tooltip = "Each support set is estimated to be a 20% damage loss",
             min = 0,
             max = 4,
@@ -345,28 +406,28 @@ function DPSContributionTracker:CreateSettingsMenu()
             default = defaults.supportSetReduction,
         },
 
-        [9] = {
+        [11] = {
             type = "divider",
         },
-        [10] = {
+        [12] = {
             type = "description",
             text = "Adjust UI"
         },
-        [11] = {
+        [13] = {
             type = "slider",
             name = "Font Size",
-            tooltip = "Adjust label font size.",
             min = 10,
             max = 48,
             step = 1,
             getFunc = function() return self.savedVars.fontSize end,
             setFunc = function(value)
                 self.savedVars.fontSize = value
+
                 self:UpdateLabelSettings()
             end,
             default = 24,
         },
-        [12] = {
+        [14] = {
             type = "slider",
             name = "Label X Position",
             min = 0,
@@ -379,7 +440,7 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 100,
         },
-        [13] = {
+        [15] = {
             type = "slider",
             name = "Label Y Position",
             min = 0,
@@ -392,13 +453,12 @@ function DPSContributionTracker:CreateSettingsMenu()
             end,
             default = 100,
         },
-        [14] = {
+        [16] = {
             type = "divider",
         },
-        [15] = {
+        [17] = {
             type = "checkbox",
             name = "Enable Debug Notifications",
-            tooltip = "For testing",
             getFunc = function() return self.savedVars.showNotifications end,
             setFunc = function(value) self.savedVars.showNotifications = value end,
             default = defaults.showNotifications,
@@ -412,10 +472,11 @@ end
 --=============================================================================
 -- EVENT MANAGERS
 --=============================================================================
+
 -- Register start and stop for combat state
 EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_PLAYER_COMBAT_STATE,
     function(_, inCombat)
-        DPSContributionTracker:OnCombatStateChanged(inCombat)
+        BossFightContribution:OnCombatStateChanged(inCombat)
     end)
 
 local function OnAddOnLoaded(event, addonName)
@@ -429,5 +490,5 @@ EVENT_MANAGER:RegisterForEvent(ADDON_NAME, EVENT_ADD_ON_LOADED, OnAddOnLoaded)
 
 -- Periodic update
 EVENT_MANAGER:RegisterForUpdate(ADDON_NAME .. "_UpdateStatus", 1000, function()
-    DPSContributionTracker:UpdateStatus()
+    BossFightContribution:UpdateStatus()
 end)
